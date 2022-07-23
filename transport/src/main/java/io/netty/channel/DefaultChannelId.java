@@ -204,7 +204,7 @@ public final class DefaultChannelId implements ChannelId {
     }
 
     @Override
-    public String asShortText() {
+    public String asShortText() { //yangyc 使用最后 4 字节的随机数字，并转换成 16 进制的数字字符串
         String shortValue = this.shortValue;
         if (shortValue == null) {
             this.shortValue = shortValue = ByteBufUtil.hexDump(data, data.length - RANDOM_LEN, RANDOM_LEN);
@@ -213,7 +213,7 @@ public final class DefaultChannelId implements ChannelId {
     }
 
     @Override
-    public String asLongText() {
+    public String asLongText() { //yangyc
         String longValue = this.longValue;
         if (longValue == null) {
             this.longValue = longValue = newLongValue();

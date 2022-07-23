@@ -44,11 +44,11 @@ import static io.netty.util.internal.ObjectUtil.checkPositiveOrZero;
 /**
  * A skeletal implementation of a buffer.
  */
-public abstract class AbstractByteBuf extends ByteBuf {
+public abstract class AbstractByteBuf extends ByteBuf { //yangyc ByteBuf 最最最重要的子类
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractByteBuf.class);
     private static final String LEGACY_PROP_CHECK_ACCESSIBLE = "io.netty.buffer.bytebuf.checkAccessible";
     private static final String PROP_CHECK_ACCESSIBLE = "io.netty.buffer.checkAccessible";
-    static final boolean checkAccessible; // accessed from CompositeByteBuf
+    static final boolean checkAccessible; // accessed from CompositeByteBuf  //yangyc 是否检查可访问
     private static final String PROP_CHECK_BOUNDS = "io.netty.buffer.checkBounds";
     private static final boolean checkBounds;
 
@@ -68,11 +68,11 @@ public abstract class AbstractByteBuf extends ByteBuf {
     static final ResourceLeakDetector<ByteBuf> leakDetector =
             ResourceLeakDetectorFactory.instance().newResourceLeakDetector(ByteBuf.class);
 
-    int readerIndex;
-    int writerIndex;
-    private int markedReaderIndex;
-    private int markedWriterIndex;
-    private int maxCapacity;
+    int readerIndex; //yangyc 读索引
+    int writerIndex; //yangyc 写索引
+    private int markedReaderIndex; //yangyc readerIndex 的标记
+    private int markedWriterIndex; //yangyc markedWriterIndex 的标记
+    private int maxCapacity; //yangyc 最大容量
 
     protected AbstractByteBuf(int maxCapacity) {
         checkPositiveOrZero(maxCapacity, "maxCapacity");
@@ -81,16 +81,16 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public boolean isReadOnly() {
-        return false;
+        return false; //yangyc 返回是否只读
     }
 
     @SuppressWarnings("deprecation")
     @Override
-    public ByteBuf asReadOnly() {
+    public ByteBuf asReadOnly() { //yangyc 转换成只读 ByteBuf 对象
         if (isReadOnly()) {
-            return this;
+            return this;  //yangyc 如果已经是只读，直接返回
         }
-        return Unpooled.unmodifiableBuffer(this);
+        return Unpooled.unmodifiableBuffer(this);  //yangyc 转化成只读 Buffer 对象
     }
 
     @Override
@@ -98,7 +98,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
         return maxCapacity;
     }
 
-    protected final void maxCapacity(int maxCapacity) {
+    protected final void maxCapacity(int maxCapacity) { //yangyc 设置最大容量
         this.maxCapacity = maxCapacity;
     }
 
@@ -149,7 +149,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public ByteBuf clear() {
-        readerIndex = writerIndex = 0;
+        readerIndex = writerIndex = 0; //yangyc 读写索引都重置为 0, 读写标记位不会重置
         return this;
     }
 
@@ -174,7 +174,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
     }
 
     @Override
-    public int readableBytes() {
+    public int readableBytes() { //yangyc 获得可读的字节数
         return writerIndex - readerIndex;
     }
 
@@ -214,20 +214,20 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public ByteBuf discardReadBytes() {
-        if (readerIndex == 0) {
-            ensureAccessible();
+        if (readerIndex == 0) { //yangyc 无废弃段
+            ensureAccessible();  //yangyc 校验可访问
             return this;
         }
 
-        if (readerIndex != writerIndex) {
-            setBytes(0, this, readerIndex, writerIndex - readerIndex);
-            writerIndex -= readerIndex;
-            adjustMarkers(readerIndex);
-            readerIndex = 0;
-        } else {
+        if (readerIndex != writerIndex) { //yangyc 未读取完
+            setBytes(0, this, readerIndex, writerIndex - readerIndex);  //yangyc 将可读段复制到 ByteBuf 头
+            writerIndex -= readerIndex; //yangyc 写索引减小
+            adjustMarkers(readerIndex); //yangyc 调整标记位
+            readerIndex = 0; //yangyc 读索引重置为 0
+        } else {  //yangyc 全部读取完
             ensureAccessible();
-            adjustMarkers(readerIndex);
-            writerIndex = readerIndex = 0;
+            adjustMarkers(readerIndex); //yangyc 调整标记位
+            writerIndex = readerIndex = 0;  //yangyc 读写索引都重置为 0
         }
         return this;
     }
@@ -235,18 +235,18 @@ public abstract class AbstractByteBuf extends ByteBuf {
     @Override
     public ByteBuf discardSomeReadBytes() {
         if (readerIndex > 0) {
-            if (readerIndex == writerIndex) {
-                ensureAccessible();
-                adjustMarkers(readerIndex);
-                writerIndex = readerIndex = 0;
+            if (readerIndex == writerIndex) {  //yangyc 全部读取完
+                ensureAccessible(); //yangyc 校验可访问
+                adjustMarkers(readerIndex);  //yangyc 调整标记位
+                writerIndex = readerIndex = 0;  //yangyc 读写索引都重置为 0
                 return this;
             }
 
-            if (readerIndex >= capacity() >>> 1) {
-                setBytes(0, this, readerIndex, writerIndex - readerIndex);
-                writerIndex -= readerIndex;
-                adjustMarkers(readerIndex);
-                readerIndex = 0;
+            if (readerIndex >= capacity() >>> 1) {  //yangyc 读取超过容量的一半，进行释放
+                setBytes(0, this, readerIndex, writerIndex - readerIndex); //yangyc 将可读段复制到 ByteBuf 头
+                writerIndex -= readerIndex; //yangyc 写索引减小
+                adjustMarkers(readerIndex);  //yangyc 调整标记位
+                readerIndex = 0;  //yangyc 读索引重置为 0
                 return this;
             }
         }
@@ -254,13 +254,13 @@ public abstract class AbstractByteBuf extends ByteBuf {
         return this;
     }
 
-    protected final void adjustMarkers(int decrement) {
-        if (markedReaderIndex <= decrement) {
-            markedReaderIndex = 0;
-            if (markedWriterIndex <= decrement) {
-                markedWriterIndex = 0;
+    protected final void adjustMarkers(int decrement) { //yangyc 调整标记位
+        if (markedReaderIndex <= decrement) { //yangyc 读标记位小于减少值(decrement)
+            markedReaderIndex = 0; //yangyc 重置读标记位为 0
+            if (markedWriterIndex <= decrement) { //yangyc 写标记位小于减少值(decrement)
+                markedWriterIndex = 0; //yangyc 重置写标记位为 0
             } else {
-                markedWriterIndex -= decrement;
+                markedWriterIndex -= decrement; // 减小写标记位
             }
         } else {
             markedReaderIndex -= decrement;
@@ -271,26 +271,26 @@ public abstract class AbstractByteBuf extends ByteBuf {
     // Called after a capacity reduction
     protected final void trimIndicesToCapacity(int newCapacity) {
         if (writerIndex() > newCapacity) {
-            setIndex0(Math.min(readerIndex(), newCapacity), newCapacity);
+            setIndex0(Math.min(readerIndex(), newCapacity), newCapacity); //yangyc 设置读写索引，避免超过最大容量
         }
     }
 
     @Override
-    public ByteBuf ensureWritable(int minWritableBytes) {
+    public ByteBuf ensureWritable(int minWritableBytes) { //yangyc 保证有足够的可写空间。若不够，则进行扩容
         ensureWritable0(checkPositiveOrZero(minWritableBytes, "minWritableBytes"));
         return this;
     }
 
-    final void ensureWritable0(int minWritableBytes) {
+    final void ensureWritable0(int minWritableBytes) { //yangyc 保证有足够的可写空间。若不够，则进行扩容
         final int writerIndex = writerIndex();
         final int targetCapacity = writerIndex + minWritableBytes;
         // using non-short-circuit & to reduce branching - this is a hot path and targetCapacity should rarely overflow
         if (targetCapacity >= 0 & targetCapacity <= capacity()) {
-            ensureAccessible();
+            ensureAccessible();  //yangyc 检查是否可访问
             return;
         }
         if (checkBounds && (targetCapacity < 0 || targetCapacity > maxCapacity)) {
-            ensureAccessible();
+            ensureAccessible(); //yangyc 检查是否可访问
             throw new IndexOutOfBoundsException(String.format(
                     "writerIndex(%d) + minWritableBytes(%d) exceeds maxCapacity(%d): %s",
                     writerIndex, minWritableBytes, maxCapacity, this));
@@ -299,54 +299,54 @@ public abstract class AbstractByteBuf extends ByteBuf {
         // Normalize the target capacity to the power of 2.
         final int fastWritable = maxFastWritableBytes();
         int newCapacity = fastWritable >= minWritableBytes ? writerIndex + fastWritable
-                : alloc().calculateNewCapacity(targetCapacity, maxCapacity);
+                : alloc().calculateNewCapacity(targetCapacity, maxCapacity); //yangyc 计算新的容量。默认情况下，2 倍扩容，并且不超过最大容量上限
 
         // Adjust to the new capacity.
-        capacity(newCapacity);
+        capacity(newCapacity); //yangyc 设置新的容量大小
     }
 
     @Override
-    public int ensureWritable(int minWritableBytes, boolean force) {
-        ensureAccessible();
+    public int ensureWritable(int minWritableBytes, boolean force) { //yangyc 与ensureWritable(int minWritableBytes)区别：有返回值，且超过最大容量的上限时，不会抛出 IndexOutOfBoundsException 异常
+        ensureAccessible(); //yangyc 检查是否可访问
         checkPositiveOrZero(minWritableBytes, "minWritableBytes");
 
         if (minWritableBytes <= writableBytes()) {
-            return 0;
+            return 0; //yangyc 目前容量可写，直接返回 0
         }
 
         final int maxCapacity = maxCapacity();
         final int writerIndex = writerIndex();
-        if (minWritableBytes > maxCapacity - writerIndex) {
+        if (minWritableBytes > maxCapacity - writerIndex) {  //yangyc 超过最大上限
             if (!force || capacity() == maxCapacity) {
-                return 1;
+                return 1;  //yangyc 不强制设置，或者已经到达最大容量,返回 1
             }
 
-            capacity(maxCapacity);
+            capacity(maxCapacity);  //yangyc 设置为最大容量
             return 3;
         }
 
         int fastWritable = maxFastWritableBytes();
         int newCapacity = fastWritable >= minWritableBytes ? writerIndex + fastWritable
-                : alloc().calculateNewCapacity(writerIndex + minWritableBytes, maxCapacity);
+                : alloc().calculateNewCapacity(writerIndex + minWritableBytes, maxCapacity);  //yangyc 计算新的容量。默认情况下，2 倍扩容，并且不超过最大容量上限。
 
         // Adjust to the new capacity.
-        capacity(newCapacity);
+        capacity(newCapacity); //yangyc 设置新的容量大小
         return 2;
     }
 
     @Override
     public ByteBuf order(ByteOrder endianness) {
         if (endianness == order()) {
-            return this;
+            return this;  //yangyc 如果字节序未修改，直接返回该 ByteBuf 对象
         }
         ObjectUtil.checkNotNull(endianness, "endianness");
-        return newSwappedByteBuf();
+        return newSwappedByteBuf();  //yangyc 如果字节序有修改，创建 SwappedByteBuf 对象
     }
 
     /**
      * Creates a new {@link SwappedByteBuf} for this {@link ByteBuf} instance.
      */
-    protected SwappedByteBuf newSwappedByteBuf() {
+    protected SwappedByteBuf newSwappedByteBuf() {  //yangyc 创建 SwappedByteBuf 对象
         return new SwappedByteBuf(this);
     }
 
@@ -430,8 +430,8 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public int getInt(int index) {
-        checkIndex(index, 4);
-        return _getInt(index);
+        checkIndex(index, 4); //yangyc 校验读取是否会超过容量
+        return _getInt(index); //yangyc 读取 Int 数据
     }
 
     protected abstract int _getInt(int index);
@@ -579,8 +579,8 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public ByteBuf setInt(int index, int value) {
-        checkIndex(index, 4);
-        _setInt(index, value);
+        checkIndex(index, 4); //yangyc 校验写入是否会超过容量
+        _setInt(index, value); //yangyc 设置 Int 数据
         return this;
     }
 
@@ -806,9 +806,9 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public int readInt() {
-        checkReadableBytes0(4);
-        int v = _getInt(readerIndex);
-        readerIndex += 4;
+        checkReadableBytes0(4);  //yangyc 校验读取是否会超过可读段
+        int v = _getInt(readerIndex);  //yangyc 读取 Int 数据
+        readerIndex += 4;  //yangyc 修改 readerIndex ，加上已读取字节数
         return v;
     }
 
@@ -1020,9 +1020,9 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public ByteBuf writeInt(int value) {
-        ensureWritable0(4);
-        _setInt(writerIndex, value);
-        writerIndex += 4;
+        ensureWritable0(4); //yangyc 保证可写入
+        _setInt(writerIndex, value); //yangyc 写入 Int 数据
+        writerIndex += 4; //yangyc 修改 writerIndex ，加上已写入字节数
         return this;
     }
 
@@ -1190,28 +1190,28 @@ public abstract class AbstractByteBuf extends ByteBuf {
     }
 
     @Override
-    public ByteBuf copy() {
-        return copy(readerIndex, readableBytes());
+    public ByteBuf copy() { //yangyc 拷贝可读部分的字节数组
+        return copy(readerIndex, readableBytes()); //yangyc readableBytes()：获得可读的字节数; copy(x，x):拷贝指定部分的字节数组,深拷贝在子类实现
     }
 
     @Override
-    public ByteBuf duplicate() {
+    public ByteBuf duplicate() { //yangyc 拷贝整个的字节数组
         ensureAccessible();
-        return new UnpooledDuplicatedByteBuf(this);
+        return new UnpooledDuplicatedByteBuf(this); //yangyc 在它内部，会调用当前 ByteBuf 对象---浅拷贝
     }
 
     @Override
-    public ByteBuf retainedDuplicate() {
+    public ByteBuf retainedDuplicate() { //yangyc 在 #duplicate() 方法的基础上，引用计数加 1
         return duplicate().retain();
     }
 
     @Override
-    public ByteBuf slice() {
-        return slice(readerIndex, readableBytes());
+    public ByteBuf slice() { //yangyc 拷贝可读部分的字节数组
+        return slice(readerIndex, readableBytes()); //yangyc readableBytes()：获得可读的字节数; copy(x，x):拷贝指定部分的字节数组,浅拷贝
     }
 
     @Override
-    public ByteBuf retainedSlice() {
+    public ByteBuf retainedSlice() { //yangyc 在 #slice() 方法的基础上，引用计数加 1
         return slice().retain();
     }
 
@@ -1379,9 +1379,9 @@ public abstract class AbstractByteBuf extends ByteBuf {
         checkIndex(index, 1);
     }
 
-    protected final void checkIndex(int index, int fieldLength) {
-        ensureAccessible();
-        checkIndex0(index, fieldLength);
+    protected final void checkIndex(int index, int fieldLength) { //yangyc 校验读取是否会超过容量，不会改变 readerIndex
+        ensureAccessible(); //yangyc 校验是否可访问
+        checkIndex0(index, fieldLength); //yangyc 校验是否会超过容量
     }
 
     private static void checkRangeBounds(final String indexName, final int index,
@@ -1392,7 +1392,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
         }
     }
 
-    final void checkIndex0(int index, int fieldLength) {
+    final void checkIndex0(int index, int fieldLength) { //yangyc 校验是否会超过容量
         if (checkBounds) {
             checkRangeBounds("index", index, fieldLength, capacity());
         }
@@ -1428,7 +1428,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
         checkReadableBytes0(checkPositiveOrZero(minimumReadableBytes, "minimumReadableBytes"));
     }
 
-    protected final void checkNewCapacity(int newCapacity) {
+    protected final void checkNewCapacity(int newCapacity) { //yangyc 校验新的容量，不能超过最大容量
         ensureAccessible();
         if (checkBounds && (newCapacity < 0 || newCapacity > maxCapacity())) {
             throw new IllegalArgumentException("newCapacity: " + newCapacity +
@@ -1436,9 +1436,9 @@ public abstract class AbstractByteBuf extends ByteBuf {
         }
     }
 
-    private void checkReadableBytes0(int minimumReadableBytes) {
-        ensureAccessible();
-        if (checkBounds && readerIndex > writerIndex - minimumReadableBytes) {
+    private void checkReadableBytes0(int minimumReadableBytes) { //yangyc 校验读取是否会超过可读段
+        ensureAccessible();  //yangyc 是否可访问
+        if (checkBounds && readerIndex > writerIndex - minimumReadableBytes) {  //yangyc 是否超过写索引，即超过可读段
             throw new IndexOutOfBoundsException(String.format(
                     "readerIndex(%d) + length(%d) exceeds writerIndex(%d): %s",
                     readerIndex, minimumReadableBytes, writerIndex, this));
@@ -1449,18 +1449,18 @@ public abstract class AbstractByteBuf extends ByteBuf {
      * Should be called by every method that tries to access the buffers content to check
      * if the buffer was released before.
      */
-    protected final void ensureAccessible() {
+    protected final void ensureAccessible() { //yangyc 检查是否可访问
         if (checkAccessible && !isAccessible()) {
             throw new IllegalReferenceCountException(0);
         }
     }
 
-    final void setIndex0(int readerIndex, int writerIndex) {
+    final void setIndex0(int readerIndex, int writerIndex) { //yangyc 重置读写索引为 0
         this.readerIndex = readerIndex;
         this.writerIndex = writerIndex;
     }
 
-    final void discardMarks() {
+    final void discardMarks() { //yangyc 重置读写标记位为 0
         markedReaderIndex = markedWriterIndex = 0;
     }
 }

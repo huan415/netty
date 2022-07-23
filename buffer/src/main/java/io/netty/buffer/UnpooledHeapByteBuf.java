@@ -35,11 +35,11 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
  * {@link UnpooledByteBufAllocator#heapBuffer(int, int)}, {@link Unpooled#buffer(int)} and
  * {@link Unpooled#wrappedBuffer(byte[])} instead of calling the constructor explicitly.
  */
-public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
+public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf { //yangyc PooledHeapByteBuf 的非池化 ByteBuf 实现类
 
-    private final ByteBufAllocator alloc;
-    byte[] array;
-    private ByteBuffer tmpNioBuf;
+    private final ByteBufAllocator alloc; //yangyc ByteBuf 分配器对象
+    byte[] array; //yangyc 字节数组
+    private ByteBuffer tmpNioBuf; //yangyc 临时 ByteBuff 对象
 
     /**
      * Creates a new heap buffer with a newly allocated byte array.
@@ -48,7 +48,7 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
      * @param maxCapacity the max capacity of the underlying byte array
      */
     public UnpooledHeapByteBuf(ByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
-        super(maxCapacity);
+        super(maxCapacity); //yangyc 设置最大容量
 
         if (initialCapacity > maxCapacity) {
             throw new IllegalArgumentException(String.format(
@@ -56,8 +56,8 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         }
 
         this.alloc = checkNotNull(alloc, "alloc");
-        setArray(allocateArray(initialCapacity));
-        setIndex(0, 0);
+        setArray(allocateArray(initialCapacity));  //yangyc 创建并设置字节数组
+        setIndex(0, 0);   // 设置字节数组
     }
 
     /**
@@ -67,7 +67,7 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
      * @param maxCapacity the max capacity of the underlying byte array
      */
     protected UnpooledHeapByteBuf(ByteBufAllocator alloc, byte[] initialArray, int maxCapacity) {
-        super(maxCapacity);
+        super(maxCapacity); //yangyc 设置最大容量
 
         checkNotNull(alloc, "alloc");
         checkNotNull(initialArray, "initialArray");
@@ -77,11 +77,11 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         }
 
         this.alloc = alloc;
-        setArray(initialArray);
-        setIndex(0, initialArray.length);
+        setArray(initialArray);  //yangyc 设置字节数组
+        setIndex(0, initialArray.length); //yangyc 设置字节数组
     }
 
-    protected byte[] allocateArray(int initialCapacity) {
+    protected byte[] allocateArray(int initialCapacity) { //yangyc 创建字节数组
         return new byte[initialCapacity];
     }
 
@@ -89,7 +89,7 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         // NOOP
     }
 
-    private void setArray(byte[] initialArray) {
+    private void setArray(byte[] initialArray) { //yangyc 设置 array 属性
         array = initialArray;
         tmpNioBuf = null;
     }
@@ -115,8 +115,8 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     }
 
     @Override
-    public ByteBuf capacity(int newCapacity) {
-        checkNewCapacity(newCapacity);
+    public ByteBuf capacity(int newCapacity) { //yangyc 调整容量大小,可能对 array 扩容或缩容
+        checkNewCapacity(newCapacity); //yangyc 校验新的容量，不能超过最大容量
         byte[] oldArray = array;
         int oldCapacity = oldArray.length;
         if (newCapacity == oldCapacity) {
@@ -124,16 +124,16 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         }
 
         int bytesToCopy;
-        if (newCapacity > oldCapacity) {
+        if (newCapacity > oldCapacity) {  //yangyc 扩容
             bytesToCopy = oldCapacity;
-        } else {
+        } else {  //yangyc 缩容
             trimIndicesToCapacity(newCapacity);
             bytesToCopy = newCapacity;
         }
         byte[] newArray = allocateArray(newCapacity);
-        System.arraycopy(oldArray, 0, newArray, 0, bytesToCopy);
-        setArray(newArray);
-        freeArray(oldArray);
+        System.arraycopy(oldArray, 0, newArray, 0, bytesToCopy); //yangyc 只复制【读取段】数据到新数组
+        setArray(newArray); //yangyc 设置数组
+        freeArray(oldArray); //yangyc 释放老数组
         return this;
     }
 
@@ -544,9 +544,9 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     }
 
     @Override
-    protected void deallocate() {
-        freeArray(array);
-        array = EmptyArrays.EMPTY_BYTES;
+    protected void deallocate() { //yangyc 当引用计数为 0 时，调用该方法，进行内存回收
+        freeArray(array); //yangyc 释放老数组
+        array = EmptyArrays.EMPTY_BYTES; //yangyc 设置为空字节数组
     }
 
     @Override

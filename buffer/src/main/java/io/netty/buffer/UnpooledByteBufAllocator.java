@@ -24,11 +24,11 @@ import java.nio.ByteBuffer;
 /**
  * Simplistic {@link ByteBufAllocator} implementation that does not pool anything.
  */
-public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator implements ByteBufAllocatorMetricProvider {
+public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator implements ByteBufAllocatorMetricProvider { //yangyc 普通的 ByteBuf 的分配器，不基于内存池
 
     private final UnpooledByteBufAllocatorMetric metric = new UnpooledByteBufAllocatorMetric();
-    private final boolean disableLeakDetector;
-    private final boolean noCleaner;
+    private final boolean disableLeakDetector; //yangyc 是否禁用内存泄露检测功能, 默认为 false
+    private final boolean noCleaner; //yangyc 是否不使用 io.netty.util.internal.Cleaner 来释放 Direct ByteBuf, 默认为 true
 
     /**
      * Default instance which uses leak-detection for direct buffers.
@@ -78,14 +78,14 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     }
 
     @Override
-    protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
+    protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) { //yangyc 创建以 "Instrumented" 的 Heap ByteBuf 对象，因为要结合 Metric
         return PlatformDependent.hasUnsafe() ?
                 new InstrumentedUnpooledUnsafeHeapByteBuf(this, initialCapacity, maxCapacity) :
                 new InstrumentedUnpooledHeapByteBuf(this, initialCapacity, maxCapacity);
     }
 
     @Override
-    protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
+    protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) { //yangyc 创建以 "Instrumented" 的 Direct ByteBuf 对象，因为要结合 Metric
         final ByteBuf buf;
         if (PlatformDependent.hasUnsafe()) {
             buf = noCleaner ? new InstrumentedUnpooledUnsafeNoCleanerDirectByteBuf(this, initialCapacity, maxCapacity) :
@@ -114,27 +114,27 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     }
 
     @Override
-    public ByteBufAllocatorMetric metric() {
+    public ByteBufAllocatorMetric metric() { //yangyc Metric 相关操作方法 --- get metric
         return metric;
     }
 
-    void incrementDirect(int amount) {
+    void incrementDirect(int amount) {  //yangyc Metric 相关操作方法 --- 增加 Direct
         metric.directCounter.add(amount);
     }
 
-    void decrementDirect(int amount) {
+    void decrementDirect(int amount) {  //yangyc Metric 相关操作方法 --- 减少 Direct
         metric.directCounter.add(-amount);
     }
 
-    void incrementHeap(int amount) {
+    void incrementHeap(int amount) {  //yangyc Metric 相关操作方法 --- 增加 Heap
         metric.heapCounter.add(amount);
     }
 
-    void decrementHeap(int amount) {
+    void decrementHeap(int amount) {  //yangyc Metric 相关操作方法 --- 减少 Heap
         metric.heapCounter.add(-amount);
     }
 
-    private static final class InstrumentedUnpooledUnsafeHeapByteBuf extends UnpooledUnsafeHeapByteBuf {
+    private static final class InstrumentedUnpooledUnsafeHeapByteBuf extends UnpooledUnsafeHeapByteBuf { //yangyc 通过继承 UnpooledUnsafeHeapByteBuf 的方式，进行增强，调用 Metric 相应的增减操作方法，得以记录 Heap 占用内存的大小
         InstrumentedUnpooledUnsafeHeapByteBuf(UnpooledByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
             super(alloc, initialCapacity, maxCapacity);
         }
@@ -154,7 +154,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         }
     }
 
-    private static final class InstrumentedUnpooledHeapByteBuf extends UnpooledHeapByteBuf {
+    private static final class InstrumentedUnpooledHeapByteBuf extends UnpooledHeapByteBuf { //yangyc 在原先的基础上，调用 Metric 相应的增减操作方法，得以记录 Heap 占用内存的大小
         InstrumentedUnpooledHeapByteBuf(UnpooledByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
             super(alloc, initialCapacity, maxCapacity);
         }
@@ -175,7 +175,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     }
 
     private static final class InstrumentedUnpooledUnsafeNoCleanerDirectByteBuf
-            extends UnpooledUnsafeNoCleanerDirectByteBuf {
+            extends UnpooledUnsafeNoCleanerDirectByteBuf { //yangyc 在原先的基础上，调用 Metric 相应的增减操作方法，得以记录 Heap 占用内存的大小
         InstrumentedUnpooledUnsafeNoCleanerDirectByteBuf(
                 UnpooledByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
             super(alloc, initialCapacity, maxCapacity);
@@ -204,7 +204,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         }
     }
 
-    private static final class InstrumentedUnpooledUnsafeDirectByteBuf extends UnpooledUnsafeDirectByteBuf {
+    private static final class InstrumentedUnpooledUnsafeDirectByteBuf extends UnpooledUnsafeDirectByteBuf { //yangyc 在原先的基础上，调用 Metric 相应的增减操作方法，得以记录 Heap 占用内存的大小
         InstrumentedUnpooledUnsafeDirectByteBuf(
                 UnpooledByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
             super(alloc, initialCapacity, maxCapacity);
@@ -246,9 +246,9 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         }
     }
 
-    private static final class UnpooledByteBufAllocatorMetric implements ByteBufAllocatorMetric {
-        final LongCounter directCounter = PlatformDependent.newLongCounter();
-        final LongCounter heapCounter = PlatformDependent.newLongCounter();
+    private static final class UnpooledByteBufAllocatorMetric implements ByteBufAllocatorMetric { //yangyc UnpooledByteBufAllocator 的内部静态类，实现 ByteBufAllocatorMetric 接口
+        final LongCounter directCounter = PlatformDependent.newLongCounter(); //yangyc Direct ByteBuf 占用内存大小, newLongCounter() 根据不同的JDK版本获取不同的 LongCounter
+        final LongCounter heapCounter = PlatformDependent.newLongCounter(); //yangyc Heap ByteBuf 占用内存大小, newLongCounter() 根据不同的JDK版本获取不同的 LongCounter
 
         @Override
         public long usedHeapMemory() {

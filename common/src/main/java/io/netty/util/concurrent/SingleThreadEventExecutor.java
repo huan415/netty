@@ -45,9 +45,9 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
  * Abstract base class for {@link OrderedEventExecutor}'s that execute all its submitted tasks in a single thread.
- *
+ * yangyc 基于单线程的 EventExecutor 抽象类，即一个 EventExecutor 对应一个线程
  */
-public abstract class SingleThreadEventExecutor extends AbstractScheduledEventExecutor implements OrderedEventExecutor {
+public abstract class SingleThreadEventExecutor extends AbstractScheduledEventExecutor implements OrderedEventExecutor { //yangyc 继承支持定时任务的 EventExecutor；实现：表示该执行器会有序 / 串行的方式执行
 
     static final int DEFAULT_MAX_PENDING_EXECUTOR_TASKS = Math.max(16,
             SystemPropertyUtil.getInt("io.netty.eventexecutor.maxPendingTasks", Integer.MAX_VALUE));
@@ -55,11 +55,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     private static final InternalLogger logger =
             InternalLoggerFactory.getInstance(SingleThreadEventExecutor.class);
 
-    private static final int ST_NOT_STARTED = 1;
-    private static final int ST_STARTED = 2;
-    private static final int ST_SHUTTING_DOWN = 3;
-    private static final int ST_SHUTDOWN = 4;
-    private static final int ST_TERMINATED = 5;
+    private static final int ST_NOT_STARTED = 1; //yangyc 未开始
+    private static final int ST_STARTED = 2; //yangyc 已开始
+    private static final int ST_SHUTTING_DOWN = 3; //yangyc 正在关闭中
+    private static final int ST_SHUTDOWN = 4; //yangyc 已关闭
+    private static final int ST_TERMINATED = 5; //yangyc 已经终止
 
     private static final Runnable NOOP_TASK = new Runnable() {
         @Override
@@ -69,33 +69,33 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     };
 
     private static final AtomicIntegerFieldUpdater<SingleThreadEventExecutor> STATE_UPDATER =
-            AtomicIntegerFieldUpdater.newUpdater(SingleThreadEventExecutor.class, "state");
+            AtomicIntegerFieldUpdater.newUpdater(SingleThreadEventExecutor.class, "state"); //yangyc 字段的原子更新器
     private static final AtomicReferenceFieldUpdater<SingleThreadEventExecutor, ThreadProperties> PROPERTIES_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(
-                    SingleThreadEventExecutor.class, ThreadProperties.class, "threadProperties");
+                    SingleThreadEventExecutor.class, ThreadProperties.class, "threadProperties"); //yangyc 字段的原子更新器
 
-    private final Queue<Runnable> taskQueue;
+    private final Queue<Runnable> taskQueue; //yangyc 任务队列
 
-    private volatile Thread thread;
+    private volatile Thread thread; //yangyc 线程
     @SuppressWarnings("unused")
-    private volatile ThreadProperties threadProperties;
-    private final Executor executor;
-    private volatile boolean interrupted;
+    private volatile ThreadProperties threadProperties; //yangyc 线程属性
+    private final Executor executor; //yangyc 执行器，通过它创建 thread 线程
+    private volatile boolean interrupted; //yangyc 线程是否已经打断
 
     private final CountDownLatch threadLock = new CountDownLatch(1);
     private final Set<Runnable> shutdownHooks = new LinkedHashSet<Runnable>();
-    private final boolean addTaskWakesUp;
-    private final int maxPendingTasks;
-    private final RejectedExecutionHandler rejectedExecutionHandler;
+    private final boolean addTaskWakesUp; //yangyc 添加任务到 taskQueue 队列时，是否唤醒 thread 线程
+    private final int maxPendingTasks; //yangyc 最大等待队列大小，即 taskQueue 的队列大小
+    private final RejectedExecutionHandler rejectedExecutionHandler; //yangyc 拒绝策略---超过taskQueue最大等待队列
 
-    private long lastExecutionTime;
+    private long lastExecutionTime; //yangyc 最后执行时间
 
     @SuppressWarnings({ "FieldMayBeFinal", "unused" })
-    private volatile int state = ST_NOT_STARTED;
+    private volatile int state = ST_NOT_STARTED; //yangyc 线程状态
 
-    private volatile long gracefulShutdownQuietPeriod;
-    private volatile long gracefulShutdownTimeout;
-    private long gracefulShutdownStartTime;
+    private volatile long gracefulShutdownQuietPeriod; //yangyc 优雅关闭
+    private volatile long gracefulShutdownTimeout; //yangyc 优雅关闭超时时间，单位：毫秒
+    private long gracefulShutdownStartTime; //yangyc 优雅关闭开始时间，单位：毫秒
 
     private final Promise<?> terminationFuture = new DefaultPromise<Void>(GlobalEventExecutor.INSTANCE);
 
@@ -161,7 +161,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         rejectedExecutionHandler = ObjectUtil.checkNotNull(rejectedHandler, "rejectedHandler");
     }
 
-    protected SingleThreadEventExecutor(EventExecutorGroup parent, Executor executor,
+    protected SingleThreadEventExecutor(EventExecutorGroup parent, Executor executor, //yangyc 参数1：NioEventLoopGroup,参数2：ThreadPerTaskExecutor每个任务的线程执行器(创建线程并执行)，参数3:addTaskWakesUp，参数4：一个queue实例，参数5:拒绝策略
                                         boolean addTaskWakesUp, Queue<Runnable> taskQueue,
                                         RejectedExecutionHandler rejectedHandler) {
         super(parent);
@@ -186,8 +186,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * calls on the this {@link Queue} it may make sense to {@code @Override} this and return some more performant
      * implementation that does not support blocking operations at all.
      */
-    protected Queue<Runnable> newTaskQueue(int maxPendingTasks) {
-        return new LinkedBlockingQueue<Runnable>(maxPendingTasks);
+    protected Queue<Runnable> newTaskQueue(int maxPendingTasks) { //yangyc 创建任务队列
+        return new LinkedBlockingQueue<Runnable>(maxPendingTasks); //yangyc 方法默认返回的是 LinkedBlockingQueue 阻塞队列
     }
 
     /**
@@ -195,25 +195,25 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      */
     protected void interruptThread() {
         Thread currentThread = thread;
-        if (currentThread == null) {
-            interrupted = true;
+        if (currentThread == null) { //yangyc 线程不存在，则标记线程被打断
+            interrupted = true; //yangyc 线程不存在，则标记线程被打断
         } else {
-            currentThread.interrupt();
+            currentThread.interrupt(); //yangyc EventLoop 的线程是延迟启动，所以可能 thread 并未创建，此时通过 interrupted 标记打断。之后在 #startThread() 方法中，创建完线程后，再进行打断，也就是说，“延迟打断”
         }
     }
 
     /**
      * @see Queue#poll()
      */
-    protected Runnable pollTask() {
+    protected Runnable pollTask() { //yangyc 获得队头的任务
         assert inEventLoop();
-        return pollTaskFrom(taskQueue);
+        return pollTaskFrom(taskQueue); //yangyc 获得队头的任务
     }
 
-    protected static Runnable pollTaskFrom(Queue<Runnable> taskQueue) {
+    protected static Runnable pollTaskFrom(Queue<Runnable> taskQueue) { //yangyc 获得队头的任务
         for (;;) {
-            Runnable task = taskQueue.poll();
-            if (task != WAKEUP_TASK) {
+            Runnable task = taskQueue.poll(); //yangyc 获得并移除队首元素。如果获得不到，返回 null
+            if (task != WAKEUP_TASK) {  //yangyc 忽略 WAKEUP_TASK 任务，因为是空任务
                 return task;
             }
         }
@@ -275,19 +275,19 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
     }
 
-    private boolean fetchFromScheduledTaskQueue() {
+    private boolean fetchFromScheduledTaskQueue() { //yangyc 将定时任务队列从 scheduledTaskQueue 添加到任务队列 taskQueue, 这样定时任务可以被执行
         if (scheduledTaskQueue == null || scheduledTaskQueue.isEmpty()) {
             return true;
         }
-        long nanoTime = AbstractScheduledEventExecutor.nanoTime();
+        long nanoTime = AbstractScheduledEventExecutor.nanoTime(); //yangyc 获得当前时间
         for (;;) {
-            Runnable scheduledTask = pollScheduledTask(nanoTime);
+            Runnable scheduledTask = pollScheduledTask(nanoTime); //yangyc 获得指定时间内，定时任务队列首个可执行的任务（如果还没有到时间直接返回null），并且从队列中移除。
             if (scheduledTask == null) {
-                return true;
+                return true;  //yangyc 返回 true ，表示获取完所有可执行的定时任务
             }
-            if (!taskQueue.offer(scheduledTask)) {
+            if (!taskQueue.offer(scheduledTask)) { //yangyc 将定时任务添加到 taskQueue 中。若添加失败，则结束循环，返回 false ，表示未获取完所有课执行的定时任务
                 // No space left in the task queue add it back to the scheduledTaskQueue so we pick it up again.
-                scheduledTaskQueue.add((ScheduledFutureTask<?>) scheduledTask);
+                scheduledTaskQueue.add((ScheduledFutureTask<?>) scheduledTask);  //yangyc 普通队列满了加不进去，将定时任务添加回 scheduledTaskQueue 中
                 return false;
             }
         }
@@ -314,23 +314,23 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     /**
      * @see Queue#peek()
      */
-    protected Runnable peekTask() {
-        assert inEventLoop();
+    protected Runnable peekTask() { //yangyc 返回队头的任务，但是不移除
+        assert inEventLoop();  //yangyc 仅允许在 EventLoop 线程中执行
         return taskQueue.peek();
     }
 
     /**
      * @see Queue#isEmpty()
      */
-    protected boolean hasTasks() {
-        assert inEventLoop();
+    protected boolean hasTasks() { //yangyc 队列中是否有任务
+        assert inEventLoop(); //yangyc 仅允许在 EventLoop 线程中执行
         return !taskQueue.isEmpty();
     }
 
     /**
      * Return the number of tasks that are pending for processing.
      */
-    public int pendingTasks() {
+    public int pendingTasks() { //yangyc 获得队列中的任务数
         return taskQueue.size();
     }
 
@@ -338,24 +338,24 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * Add a task to the task queue, or throws a {@link RejectedExecutionException} if this instance was shutdown
      * before.
      */
-    protected void addTask(Runnable task) {
+    protected void addTask(Runnable task) { //yangyc-main 将 task 线程放入 taskQueue 异步执行
         ObjectUtil.checkNotNull(task, "task");
-        if (!offerTask(task)) {
-            reject(task);
+        if (!offerTask(task)) { //yangyc 添加任务到队列
+            reject(task);  //yangyc 添加失败，则拒绝任务
         }
     }
 
-    final boolean offerTask(Runnable task) {
+    final boolean offerTask(Runnable task) { //yangyc-main 将 task 线程放入 taskQueue 异步执行, 若添加失败，则返回 false
         if (isShutdown()) {
-            reject();
+            reject(); //yangyc 关闭时，拒绝任务
         }
-        return taskQueue.offer(task);
+        return taskQueue.offer(task); //yangyc-main 将 task 线程放入 taskQueue 异步执行, 后面执行 AbstractChannel#register() 里的 register0(promise)
     }
 
     /**
      * @see Queue#remove(Object)
      */
-    protected boolean removeTask(Runnable task) {
+    protected boolean removeTask(Runnable task) { //yangyc 移除指定任务
         return taskQueue.remove(ObjectUtil.checkNotNull(task, "task"));
     }
 
@@ -367,19 +367,19 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     protected boolean runAllTasks() {
         assert inEventLoop();
         boolean fetchedAll;
-        boolean ranAtLeastOne = false;
+        boolean ranAtLeastOne = false; //yangyc 是否执行过任务
 
-        do {
-            fetchedAll = fetchFromScheduledTaskQueue();
-            if (runAllTasksFrom(taskQueue)) {
-                ranAtLeastOne = true;
+        do { //yangyc fetchedAll 表示需要被调度的任务有没有转移完，没有转移完循环转移
+            fetchedAll = fetchFromScheduledTaskQueue(); //yangyc 将定时任务队列从 scheduledTaskQueue 添加到任务队列 taskQueue, 这样定时任务可以被执行
+            if (runAllTasksFrom(taskQueue)) {  //yangyc 执行任务队列中的所有任务
+                ranAtLeastOne = true;  //yangyc 若有任务执行，则标记为 true
             }
         } while (!fetchedAll); // keep on processing until we fetched all scheduled tasks.
-
+        //yangyc 此时，需要调度的任务和普通任务都已经执行完了
         if (ranAtLeastOne) {
-            lastExecutionTime = ScheduledFutureTask.nanoTime();
+            lastExecutionTime = ScheduledFutureTask.nanoTime();  //yangyc 如果执行过任务，则设置最后执行时间
         }
-        afterRunningAllTasks();
+        afterRunningAllTasks();  //yangyc 执行所有任务完成的后续方法
         return ranAtLeastOne;
     }
 
@@ -416,16 +416,16 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      *
      * @return {@code true} if at least one task was executed.
      */
-    protected final boolean runAllTasksFrom(Queue<Runnable> taskQueue) {
-        Runnable task = pollTaskFrom(taskQueue);
+    protected final boolean runAllTasksFrom(Queue<Runnable> taskQueue) { //yangyc 执行 tailTasks 队列中的所有任务
+        Runnable task = pollTaskFrom(taskQueue); //yangyc 获得队头的任务
         if (task == null) {
-            return false;
+            return false; //yangyc 获取不到，结束执行，返回 false
         }
         for (;;) {
-            safeExecute(task);
-            task = pollTaskFrom(taskQueue);
+            safeExecute(task);   //yangyc 执行任务
+            task = pollTaskFrom(taskQueue);   //yangyc 获得队头的任务
             if (task == null) {
-                return true;
+                return true; //yangyc 获取不到，结束执行，返回 false
             }
         }
     }
@@ -454,48 +454,48 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * Poll all tasks from the task queue and run them via {@link Runnable#run()} method.  This method stops running
      * the tasks in the task queue and returns if it ran longer than {@code timeoutNanos}.
      */
-    protected boolean runAllTasks(long timeoutNanos) {
-        fetchFromScheduledTaskQueue();
-        Runnable task = pollTask();
+    protected boolean runAllTasks(long timeoutNanos) { //yangyc 执行所有任务, 带有超时时间
+        fetchFromScheduledTaskQueue();  //yangyc 将定时任务队列从 scheduledTaskQueue 添加到任务队列 taskQueue, 这样定时任务可以被执行
+        Runnable task = pollTask();   //yangyc 获得队头的任务
         if (task == null) {
-            afterRunningAllTasks();
-            return false;
+            afterRunningAllTasks(); //yangyc 获取不到，结束执行，执行所有任务完成的后续方法
+            return false; //yangyc 表示没有执行过任务
         }
 
-        final long deadline = timeoutNanos > 0 ? ScheduledFutureTask.nanoTime() + timeoutNanos : 0;
-        long runTasks = 0;
-        long lastExecutionTime;
-        for (;;) {
-            safeExecute(task);
+        final long deadline = timeoutNanos > 0 ? ScheduledFutureTask.nanoTime() + timeoutNanos : 0; //yangyc 计算执行任务截止时间
+        long runTasks = 0; //yangyc 已执行任务数量
+        long lastExecutionTime; //yangyc 最后一个任务的执行时间
+        for (;;) { //yangyc 循环执行任务
+            safeExecute(task); //yangyc 执行任务
 
-            runTasks ++;
+            runTasks ++; //yangyc 计数++
 
             // Check timeout every 64 tasks because nanoTime() is relatively expensive.
             // XXX: Hard-coded value - will make it configurable if it is really a problem.
-            if ((runTasks & 0x3F) == 0) {
-                lastExecutionTime = ScheduledFutureTask.nanoTime();
-                if (lastExecutionTime >= deadline) {
+            if ((runTasks & 0x3F) == 0) { //yangyc 0x3F=>63; 等于0时=>runTasks=64或128... 每隔 64 个任务检查一次时间，因为 nanoTime() 是相对费时的操作
+                lastExecutionTime = ScheduledFutureTask.nanoTime(); //yangyc 重新获得时间
+                if (lastExecutionTime >= deadline) {  //yangyc 超过任务截止时间，结束
                     break;
                 }
             }
 
-            task = pollTask();
-            if (task == null) {
-                lastExecutionTime = ScheduledFutureTask.nanoTime();
+            task = pollTask(); //yangyc 获得队头的任务
+            if (task == null) {  //yangyc 获取不到，结束执行
+                lastExecutionTime = ScheduledFutureTask.nanoTime(); //yangyc 重新获得时间
                 break;
             }
         }
 
-        afterRunningAllTasks();
-        this.lastExecutionTime = lastExecutionTime;
-        return true;
+        afterRunningAllTasks(); //yangyc 执行所有任务完成的后续方法
+        this.lastExecutionTime = lastExecutionTime; //yangyc 设置最后执行时间
+        return true; //yangyc 表示有执行过任务
     }
 
     /**
      * Invoked before returning from {@link #runAllTasks()} and {@link #runAllTasks(long)}.
      */
     @UnstableApi
-    protected void afterRunningAllTasks() { }
+    protected void afterRunningAllTasks() { }  //yangyc 执行所有任务完成的后续方法 [SingleThreadEventLoop]里实现
 
     /**
      * Returns the amount of time left until the scheduled task with the closest dead line is executed.
@@ -529,7 +529,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * {@link #pollTask()}, you have to call this method at the end of task execution loop for accurate quiet period
      * checks.
      */
-    protected void updateLastExecutionTime() {
+    protected void updateLastExecutionTime() { //yangyc 更新最后执行时间
         lastExecutionTime = ScheduledFutureTask.nanoTime();
     }
 
@@ -541,20 +541,20 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     /**
      * Do nothing, sub-classes may override
      */
-    protected void cleanup() {
+    protected void cleanup() { //yangyc 空方法，在子类 NioEventLoop 中覆写--关闭 NIO Selector 对象。
         // NOOP
     }
 
-    protected void wakeup(boolean inEventLoop) {
-        if (!inEventLoop) {
+    protected void wakeup(boolean inEventLoop) { //yangyc 唤醒线程---NioEventLoop 重写
+        if (!inEventLoop) { //yangyc 判断不在 EventLoop 的线程中。因为，如果在 EventLoop 线程中，意味着线程就在执行中，不必要唤醒。
             // Use offer as we actually only need this to unblock the thread and if offer fails we do not care as there
             // is already something in the queue.
-            taskQueue.offer(WAKEUP_TASK);
+            taskQueue.offer(WAKEUP_TASK); //yangyc 添加任务到队列中
         }
     }
 
     @Override
-    public boolean inEventLoop(Thread thread) {
+    public boolean inEventLoop(Thread thread) { //yangyc 判断指定线程是否是 EventLoop 线程
         return thread == this.thread;
     }
 
@@ -615,7 +615,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     }
 
     @Override
-    public Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit) {
+    public Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit) { //yangyc 该方法只是将线程状态修改为ST_SHUTTING_DOWN并不执行具体的关闭操作
         ObjectUtil.checkPositiveOrZero(quietPeriod, "quietPeriod");
         if (timeout < quietPeriod) {
             throw new IllegalArgumentException(
@@ -624,7 +624,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         ObjectUtil.checkNotNull(unit, "unit");
 
         if (isShuttingDown()) {
-            return terminationFuture();
+            return terminationFuture(); //yangyc 正在关闭阻止其他线程
         }
 
         boolean inEventLoop = inEventLoop();
@@ -632,7 +632,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         int oldState;
         for (;;) {
             if (isShuttingDown()) {
-                return terminationFuture();
+                return terminationFuture(); //yangyc 正在关闭阻止其他线程
             }
             int newState;
             wakeup = true;
@@ -678,7 +678,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     @Override
     @Deprecated
-    public void shutdown() {
+    public void shutdown() { //yangyc 优雅关闭
         if (isShutdown()) {
             return;
         }
@@ -742,32 +742,32 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     /**
      * Confirm that the shutdown if the instance should be done now!
      */
-    protected boolean confirmShutdown() {
+    protected boolean confirmShutdown() { //yangyc 确定是否可以关闭或者说是否可以从EventLoop循环中跳出
         if (!isShuttingDown()) {
-            return false;
+            return false; //yangyc 没有调用shutdown相关的方法直接返回
         }
 
-        if (!inEventLoop()) {
+        if (!inEventLoop()) { //yangyc 必须是原生线程
             throw new IllegalStateException("must be invoked from an event loop");
         }
 
-        cancelScheduledTasks();
+        cancelScheduledTasks(); //yangyc 取消调度任务
 
         if (gracefulShutdownStartTime == 0) {
-            gracefulShutdownStartTime = ScheduledFutureTask.nanoTime();
+            gracefulShutdownStartTime = ScheduledFutureTask.nanoTime(); //yangyc 优雅关闭开始时间
         }
 
-        if (runAllTasks() || runShutdownHooks()) {
+        if (runAllTasks() || runShutdownHooks()) { //yangyc 执行完普通任务, 如果没有普通任务时执行完shutdownHook任务
             if (isShutdown()) {
                 // Executor shut down - no new tasks anymore.
-                return true;
+                return true; //yangyc 调用shutdown()方法直接退出
             }
 
             // There were tasks in the queue. Wait a little bit more until no tasks are queued for the quiet period or
             // terminate if the quiet period is 0.
             // See https://github.com/netty/netty/issues/4241
             if (gracefulShutdownQuietPeriod == 0) {
-                return true;
+                return true;  //yangyc 优雅关闭静默时间为0也直接退出
             }
             taskQueue.offer(WAKEUP_TASK);
             return false;
@@ -776,7 +776,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         final long nanoTime = ScheduledFutureTask.nanoTime();
 
         if (isShutdown() || nanoTime - gracefulShutdownStartTime > gracefulShutdownTimeout) {
-            return true;
+            return true; //yangyc shutdown()方法调用直接返回，优雅关闭截止时间到也返回
         }
 
         if (nanoTime - lastExecutionTime <= gracefulShutdownQuietPeriod) {
@@ -784,7 +784,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             // TODO: Change the behavior of takeTask() so that it returns on timeout.
             taskQueue.offer(WAKEUP_TASK);
             try {
-                Thread.sleep(100);
+                Thread.sleep(100);  //yangyc 在静默期间每100ms唤醒线程执行期间提交的任务
             } catch (InterruptedException e) {
                 // Ignore
             }
@@ -794,7 +794,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
         // No tasks were added for last quiet period - hopefully safe to shut down.
         // (Hopefully because we really cannot make a guarantee that there will be no execute() calls by a user.)
-        return true;
+        return true;  //yangyc 静默时间内没有任务提交，可以优雅关闭，此时若用户又提交任务则不会被执行
     }
 
     @Override
@@ -810,7 +810,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     }
 
     @Override
-    public void execute(Runnable task) {
+    public void execute(Runnable task) { //yangyc 执行一个任务
         ObjectUtil.checkNotNull(task, "task");
         execute(task, !(task instanceof LazyRunnable) && wakesUpForTask(task));
     }
@@ -820,15 +820,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         execute(ObjectUtil.checkNotNull(task, "task"), false);
     }
 
-    private void execute(Runnable task, boolean immediate) {
-        boolean inEventLoop = inEventLoop();
-        addTask(task);
+    private void execute(Runnable task, boolean immediate) {  //yangyc-main 将 task 线程放入 taskQueue 异步执行，后面执行 AbstractChannel#register() 里的 register0(promise)
+        boolean inEventLoop = inEventLoop();//yangyc 当前是否在 EventLoop 的线程中
+        addTask(task); //yangyc-main 将 task 线程放入 taskQueue 异步执行
         if (!inEventLoop) {
-            startThread();
+            startThread(); //yangyc-main 开始执行线程，启动 EventLoop 独占的线程
             if (isShutdown()) {
                 boolean reject = false;
                 try {
-                    if (removeTask(task)) {
+                    if (removeTask(task)) { //yangyc 若已经关闭且移除任务，并进行拒绝
                         reject = true;
                     }
                 } catch (UnsupportedOperationException e) {
@@ -837,44 +837,44 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                     // In worst case we will log on termination.
                 }
                 if (reject) {
-                    reject();
+                    reject(); //yangyc 若已经关闭且移除任务，并进行拒绝
                 }
             }
         }
 
         if (!addTaskWakesUp && immediate) {
-            wakeup(inEventLoop);
+            wakeup(inEventLoop); //yangyc 唤醒线程
         }
     }
 
     @Override
-    public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException {
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException { //yangyc 调用 EventExecutor 执行多个普通任务，有一个执行完成即可
         throwIfInEventLoop("invokeAny");
-        return super.invokeAny(tasks);
+        return super.invokeAny(tasks); //yangyc 调用父类 AbstractScheduledEventExecutor 的 #invokeAny(tasks, ...) 方法，执行多个普通任务，有一个执行完成即可
     }
 
     @Override
-    public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) //yangyc 调用 EventExecutor 执行多个普通任务，有一个执行完成即可
             throws InterruptedException, ExecutionException, TimeoutException {
         throwIfInEventLoop("invokeAny");
-        return super.invokeAny(tasks, timeout, unit);
+        return super.invokeAny(tasks, timeout, unit); //yangyc 调用父类 AbstractScheduledEventExecutor 的 #invokeAny(tasks, ...) 方法，执行多个普通任务，有一个执行完成即可
     }
 
     @Override
     public <T> List<java.util.concurrent.Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
-            throws InterruptedException {
-        throwIfInEventLoop("invokeAll");
-        return super.invokeAll(tasks);
+            throws InterruptedException { //yangyc 调用 EventExecutor 执行多个普通任务
+        throwIfInEventLoop("invokeAll"); //yangyc 判断若在 EventLoop 的线程中调用该方法，抛出 RejectedExecutionException 异常
+        return super.invokeAll(tasks); //yangyc 调用父类 AbstractScheduledEventExecutor 的 #invokeAll(tasks, ...) 方法，执行多个普通任务
     }
 
     @Override
-    public <T> List<java.util.concurrent.Future<T>> invokeAll(
+    public <T> List<java.util.concurrent.Future<T>> invokeAll( //yangyc 调用 EventExecutor 执行多个普通任务
             Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) throws InterruptedException {
         throwIfInEventLoop("invokeAll");
-        return super.invokeAll(tasks, timeout, unit);
+        return super.invokeAll(tasks, timeout, unit); //yangyc 调用父类 AbstractScheduledEventExecutor 的 #invokeAll(tasks, ...) 方法，执行多个普通任务
     }
 
-    private void throwIfInEventLoop(String method) {
+    private void throwIfInEventLoop(String method) { //yangyc 判断若在 EventLoop 的线程中调用该方法，抛出 RejectedExecutionException 异常
         if (inEventLoop()) {
             throw new RejectedExecutionException("Calling " + method + " from within the EventLoop is not allowed");
         }
@@ -885,19 +885,19 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * If the {@link SingleThreadEventExecutor} is not started yet, this operation will start it and block until
      * it is fully started.
      */
-    public final ThreadProperties threadProperties() {
+    public final ThreadProperties threadProperties() { //yangyc 获得 EventLoop 的线程属性
         ThreadProperties threadProperties = this.threadProperties;
-        if (threadProperties == null) {
+        if (threadProperties == null) { //yangyc 获得 ThreadProperties 对象。若不存在，则进行创建 ThreadProperties 对象
             Thread thread = this.thread;
-            if (thread == null) {
+            if (thread == null) { //yangyc 因为线程是延迟启动的，所以会出现线程为空的情况。若线程为空，则需要进行创建。
                 assert !inEventLoop();
-                submit(NOOP_TASK).syncUninterruptibly();
-                thread = this.thread;
-                assert thread != null;
+                submit(NOOP_TASK).syncUninterruptibly(); //yangyc submit: 提交空任务，促使 execute 方法执行; syncUninterruptibly():保证 execute() 方法中异步创建 thread 完成
+                thread = this.thread;  //yangyc 获得线程
+                assert thread != null; //yangyc 获得线程，并断言保证线程存在
             }
 
-            threadProperties = new DefaultThreadProperties(thread);
-            if (!PROPERTIES_UPDATER.compareAndSet(this, null, threadProperties)) {
+            threadProperties = new DefaultThreadProperties(thread); //yangyc 创建 DefaultThreadProperties 对象
+            if (!PROPERTIES_UPDATER.compareAndSet(this, null, threadProperties)) {  //yangyc CAS 修改 threadProperties 属性
                 threadProperties = this.threadProperties;
             }
         }
@@ -909,17 +909,17 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * @deprecated use {@link AbstractEventExecutor.LazyRunnable}
      */
     @Deprecated
-    protected interface NonWakeupRunnable extends LazyRunnable { }
+    protected interface NonWakeupRunnable extends LazyRunnable { } //yangyc 用于标记不唤醒线程的任务
 
     /**
      * Can be overridden to control which tasks require waking the {@link EventExecutor} thread
      * if it is waiting so that they can be run immediately.
      */
-    protected boolean wakesUpForTask(Runnable task) {
+    protected boolean wakesUpForTask(Runnable task) { //yangyc 判断该任务是否需要唤醒线程
         return true;
     }
 
-    protected static void reject() {
+    protected static void reject() { //yangyc 拒绝任务
         throw new RejectedExecutionException("event executor terminated");
     }
 
@@ -928,7 +928,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      *
      * @param task to reject.
      */
-    protected final void reject(Runnable task) {
+    protected final void reject(Runnable task) { //yangyc 拒绝任务
         rejectedExecutionHandler.rejected(task, this);
     }
 
@@ -936,12 +936,12 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
 
-    private void startThread() {
+    private void startThread() { //yangyc-main 开始执行线程
         if (state == ST_NOT_STARTED) {
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 boolean success = false;
                 try {
-                    doStartThread();
+                    doStartThread(); //yangyc-main 开始执行线程
                     success = true;
                 } finally {
                     if (!success) {
@@ -970,25 +970,25 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return false;
     }
 
-    private void doStartThread() {
+    private void doStartThread() { //yangyc-main 开始执行线程
         assert thread == null;
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                thread = Thread.currentThread();
-                if (interrupted) {
+                thread = Thread.currentThread(); //yangyc 记录当前线程
+                if (interrupted) { //yangyc 如果当前线程已经被标记打断，则进行打断操作。
                     thread.interrupt();
                 }
 
-                boolean success = false;
-                updateLastExecutionTime();
+                boolean success = false; //yangyc 是否执行成功
+                updateLastExecutionTime();  //yangyc 更新最后执行时间
                 try {
-                    SingleThreadEventExecutor.this.run();
-                    success = true;
+                    SingleThreadEventExecutor.this.run(); //yangyc-main 开始执行线程 [NioEventLoop]
+                    success = true; //yangyc 标记执行成功
                 } catch (Throwable t) {
                     logger.warn("Unexpected exception from an event executor: ", t);
                 } finally {
-                    for (;;) {
+                    for (;;) { //yangyc 优雅关闭
                         int oldState = state;
                         if (oldState >= ST_SHUTTING_DOWN || STATE_UPDATER.compareAndSet(
                                 SingleThreadEventExecutor.this, oldState, ST_SHUTTING_DOWN)) {
@@ -997,7 +997,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                     }
 
                     // Check if confirmShutdown() was called at the end of the loop.
-                    if (success && gracefulShutdownStartTime == 0) {
+                    if (success && gracefulShutdownStartTime == 0) { //yangyc 优雅关闭
                         if (logger.isErrorEnabled()) {
                             logger.error("Buggy " + EventExecutor.class.getSimpleName() + " implementation; " +
                                     SingleThreadEventExecutor.class.getSimpleName() + ".confirmShutdown() must " +
@@ -1005,7 +1005,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                         }
                     }
 
-                    try {
+                    try { //yangyc 优雅关闭
                         // Run all remaining tasks and shutdown hooks. At this point the event loop
                         // is in ST_SHUTTING_DOWN state still accepting tasks which is needed for
                         // graceful shutdown with quietPeriod.
@@ -1030,7 +1030,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                         confirmShutdown();
                     } finally {
                         try {
-                            cleanup();
+                            cleanup(); //yangyc 清理，释放资源
                         } finally {
                             // Lets remove all FastThreadLocals for the Thread as we are about to terminate and notify
                             // the future. The user may block on the future and once it unblocks the JVM may terminate

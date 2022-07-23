@@ -27,7 +27,7 @@ class UnpooledUnsafeNoCleanerDirectByteBuf extends UnpooledUnsafeDirectByteBuf {
 
     @Override
     protected ByteBuffer allocateDirect(int initialCapacity) {
-        return PlatformDependent.allocateDirectNoCleaner(initialCapacity);
+        return PlatformDependent.allocateDirectNoCleaner(initialCapacity); //yangyc 反射，直接创建 ByteBuffer 对象。并且该对象不带 Cleaner 对象
     }
 
     ByteBuffer reallocateDirect(ByteBuffer oldBuffer, int initialCapacity) {
@@ -36,7 +36,7 @@ class UnpooledUnsafeNoCleanerDirectByteBuf extends UnpooledUnsafeDirectByteBuf {
 
     @Override
     protected void freeDirect(ByteBuffer buffer) {
-        PlatformDependent.freeDirectNoCleaner(buffer);
+        PlatformDependent.freeDirectNoCleaner(buffer); //yangyc 直接释放 ByteBuffer 对象
     }
 
     @Override

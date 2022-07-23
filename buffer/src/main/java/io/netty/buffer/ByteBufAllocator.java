@@ -19,116 +19,116 @@ package io.netty.buffer;
  * Implementations are responsible to allocate buffers. Implementations of this interface are expected to be
  * thread-safe.
  */
-public interface ByteBufAllocator {
+public interface ByteBufAllocator {  //yangyc ByteBuf 的分配器，负责创建 ByteBuf 对象
 
-    ByteBufAllocator DEFAULT = ByteBufUtil.DEFAULT_ALLOCATOR;
+    ByteBufAllocator DEFAULT = ByteBufUtil.DEFAULT_ALLOCATOR; //yangyc 默认 ByteBufAllocator 对象
 
     /**
      * Allocate a {@link ByteBuf}. If it is a direct or heap buffer
      * depends on the actual implementation.
      */
-    ByteBuf buffer();
+    ByteBuf buffer(); //yangyc 创建一个 ByteBuf 对象。具体创建的是 Heap ByteBuf 还是 Direct ByteBuf ，由实现类决定
 
     /**
      * Allocate a {@link ByteBuf} with the given initial capacity.
      * If it is a direct or heap buffer depends on the actual implementation.
      */
-    ByteBuf buffer(int initialCapacity);
+    ByteBuf buffer(int initialCapacity); //yangyc 创建一个 ByteBuf 对象。具体创建的是 Heap ByteBuf 还是 Direct ByteBuf ，由实现类决定
 
     /**
      * Allocate a {@link ByteBuf} with the given initial capacity and the given
      * maximal capacity. If it is a direct or heap buffer depends on the actual
      * implementation.
      */
-    ByteBuf buffer(int initialCapacity, int maxCapacity);
+    ByteBuf buffer(int initialCapacity, int maxCapacity); //yangyc 创建一个 ByteBuf 对象。具体创建的是 Heap ByteBuf 还是 Direct ByteBuf ，由实现类决定
 
     /**
      * Allocate a {@link ByteBuf}, preferably a direct buffer which is suitable for I/O.
      */
-    ByteBuf ioBuffer();
+    ByteBuf ioBuffer(); //yangyc 创建一个用于 IO 操作的 ByteBuf 对象。倾向于 Direct ByteBuf ，因为对于 IO 操作来说，性能更优
 
     /**
      * Allocate a {@link ByteBuf}, preferably a direct buffer which is suitable for I/O.
      */
-    ByteBuf ioBuffer(int initialCapacity);
+    ByteBuf ioBuffer(int initialCapacity); //yangyc 创建一个用于 IO 操作的 ByteBuf 对象。倾向于 Direct ByteBuf ，因为对于 IO 操作来说，性能更优
 
     /**
      * Allocate a {@link ByteBuf}, preferably a direct buffer which is suitable for I/O.
      */
-    ByteBuf ioBuffer(int initialCapacity, int maxCapacity);
+    ByteBuf ioBuffer(int initialCapacity, int maxCapacity); //yangyc 创建一个用于 IO 操作的 ByteBuf 对象。倾向于 Direct ByteBuf ，因为对于 IO 操作来说，性能更优
 
     /**
      * Allocate a heap {@link ByteBuf}.
      */
-    ByteBuf heapBuffer();
+    ByteBuf heapBuffer(); //yangyc 创建一个 Heap Buffer 对象
 
     /**
      * Allocate a heap {@link ByteBuf} with the given initial capacity.
      */
-    ByteBuf heapBuffer(int initialCapacity);
+    ByteBuf heapBuffer(int initialCapacity); //yangyc 创建一个 Heap Buffer 对象
 
     /**
      * Allocate a heap {@link ByteBuf} with the given initial capacity and the given
      * maximal capacity.
      */
-    ByteBuf heapBuffer(int initialCapacity, int maxCapacity);
+    ByteBuf heapBuffer(int initialCapacity, int maxCapacity); //yangyc 创建一个 Heap Buffer 对象
 
     /**
      * Allocate a direct {@link ByteBuf}.
      */
-    ByteBuf directBuffer();
+    ByteBuf directBuffer(); //yangyc 创建一个 Direct Buffer 对象
 
     /**
      * Allocate a direct {@link ByteBuf} with the given initial capacity.
      */
-    ByteBuf directBuffer(int initialCapacity);
+    ByteBuf directBuffer(int initialCapacity); //yangyc 创建一个 Direct Buffer 对象
 
     /**
      * Allocate a direct {@link ByteBuf} with the given initial capacity and the given
      * maximal capacity.
      */
-    ByteBuf directBuffer(int initialCapacity, int maxCapacity);
+    ByteBuf directBuffer(int initialCapacity, int maxCapacity); //yangyc 创建一个 Direct Buffer 对象
 
     /**
      * Allocate a {@link CompositeByteBuf}.
      * If it is a direct or heap buffer depends on the actual implementation.
      */
-    CompositeByteBuf compositeBuffer();
+    CompositeByteBuf compositeBuffer(); //yangyc 创建一个 Composite ByteBuf 对象。具体创建的是 Heap ByteBuf 还是 Direct ByteBuf ，由实现类决定
 
     /**
      * Allocate a {@link CompositeByteBuf} with the given maximum number of components that can be stored in it.
      * If it is a direct or heap buffer depends on the actual implementation.
      */
-    CompositeByteBuf compositeBuffer(int maxNumComponents);
+    CompositeByteBuf compositeBuffer(int maxNumComponents); //yangyc 创建一个 Composite ByteBuf 对象。具体创建的是 Heap ByteBuf 还是 Direct ByteBuf ，由实现类决定
 
     /**
      * Allocate a heap {@link CompositeByteBuf}.
      */
-    CompositeByteBuf compositeHeapBuffer();
+    CompositeByteBuf compositeHeapBuffer(); //yangyc 创建一个 Composite Heap ByteBuf 对象
 
     /**
      * Allocate a heap {@link CompositeByteBuf} with the given maximum number of components that can be stored in it.
      */
-    CompositeByteBuf compositeHeapBuffer(int maxNumComponents);
+    CompositeByteBuf compositeHeapBuffer(int maxNumComponents); //yangyc 创建一个 Composite Heap ByteBuf 对象
 
     /**
      * Allocate a direct {@link CompositeByteBuf}.
      */
-    CompositeByteBuf compositeDirectBuffer();
+    CompositeByteBuf compositeDirectBuffer(); //yangyc 创建一个 Composite Direct ByteBuf 对象
 
     /**
      * Allocate a direct {@link CompositeByteBuf} with the given maximum number of components that can be stored in it.
      */
-    CompositeByteBuf compositeDirectBuffer(int maxNumComponents);
+    CompositeByteBuf compositeDirectBuffer(int maxNumComponents); //yangyc 创建一个 Composite Direct ByteBuf 对象
 
     /**
      * Returns {@code true} if direct {@link ByteBuf}'s are pooled
      */
-    boolean isDirectBufferPooled();
+    boolean isDirectBufferPooled(); //yangyc 是否基于 Direct ByteBuf 对象池
 
     /**
      * Calculate the new capacity of a {@link ByteBuf} that is used when a {@link ByteBuf} needs to expand by the
      * {@code minNewCapacity} with {@code maxCapacity} as upper-bound.
      */
-    int calculateNewCapacity(int minNewCapacity, int maxCapacity);
+    int calculateNewCapacity(int minNewCapacity, int maxCapacity); //yangyc 在 ByteBuf 扩容时，计算新的容量。默认情况下，2 倍扩容，并且不超过最大容量上限
  }

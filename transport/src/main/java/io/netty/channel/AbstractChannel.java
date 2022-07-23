@@ -44,17 +44,17 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannel.class);
 
-    private final Channel parent;
-    private final ChannelId id;
-    private final Unsafe unsafe;
-    private final DefaultChannelPipeline pipeline;
+    private final Channel parent; //yangyc 父 Channel 对象，其中对于 NioServerSocketChannel 的 parent 为空
+    private final ChannelId id; //yangyc Channel 编号
+    private final Unsafe unsafe; //yangyc Unsafe 对象 ---- Channel 真正的具体操作，都是通过调用对应的 Unsafe 实现
+    private final DefaultChannelPipeline pipeline; //yangyc DefaultChannelPipeline 对象
     private final VoidChannelPromise unsafeVoidPromise = new VoidChannelPromise(this, false);
     private final CloseFuture closeFuture = new CloseFuture(this);
 
     private volatile SocketAddress localAddress;
     private volatile SocketAddress remoteAddress;
     private volatile EventLoop eventLoop;
-    private volatile boolean registered;
+    private volatile boolean registered; //yangyc 是否注册
     private boolean closeInitiated;
     private Throwable initialCloseCause;
 
@@ -68,11 +68,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      * @param parent
      *        the parent of this channel. {@code null} if there's no parent.
      */
-    protected AbstractChannel(Channel parent) {
+    protected AbstractChannel(Channel parent) { //yangyc-main newChannelPipeline() 初始化pipeline
         this.parent = parent;
-        id = newId();
-        unsafe = newUnsafe();
-        pipeline = newChannelPipeline();
+        id = newId(); //yangyc 创建 Channel 编号 -- channelId
+        unsafe = newUnsafe(); //yangyc 创建 Unsafe 对象.  服务端 NioServerSocketChannel=>NioMessageUnsafe; 客户端：NioSocketChannel=>NioByteUnsafe
+        pipeline = newChannelPipeline(); //yangyc-main 创建 DefaultChannelPipeline 对象
     }
 
     /**
@@ -220,8 +220,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     }
 
     @Override
-    public ChannelFuture bind(SocketAddress localAddress) {
-        return pipeline.bind(localAddress);
+    public ChannelFuture bind(SocketAddress localAddress) { //yangyc Outbound 事件的发起者是 Channel
+        return pipeline.bind(localAddress); //yangyc 实际调用 DefaultChannelPipeline#bind()
     }
 
     @Override
@@ -236,12 +236,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     @Override
     public ChannelFuture disconnect() {
-        return pipeline.disconnect();
+        return pipeline.disconnect(); //yangyc disconnect 事件在 pipeline 上传播
     }
 
     @Override
     public ChannelFuture close() {
-        return pipeline.close();
+        return pipeline.close();  //yangyc 将 close 事件在 pipeline 上传播 --- [DefaultChannelPipeline->TailContext->HeadContext]
     }
 
     @Override
@@ -250,8 +250,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     }
 
     @Override
-    public Channel flush() {
-        pipeline.flush();
+    public Channel flush() { //yangyc 刷新内存队列，将其中的数据写入到对端，此时数据才真正写到对端
+        pipeline.flush(); //yangyc 将 flush 事件在 pipeline 上传播
         return this;
     }
 
@@ -292,22 +292,22 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     }
 
     @Override
-    public ChannelFuture write(Object msg) {
-        return pipeline.write(msg);
+    public ChannelFuture write(Object msg) {  //yangyc 将数据写到内存队列中,此时数据并没有写入到对端
+        return pipeline.write(msg); //yangyc write 事件在 pipeline 上传播
     }
 
     @Override
-    public ChannelFuture write(Object msg, ChannelPromise promise) {
-        return pipeline.write(msg, promise);
+    public ChannelFuture write(Object msg, ChannelPromise promise) { //yangyc 将数据写到内存队列中,此时数据并没有写入到对端
+        return pipeline.write(msg, promise); //yangyc write 事件在 pipeline 上传播
     }
 
     @Override
-    public ChannelFuture writeAndFlush(Object msg) {
+    public ChannelFuture writeAndFlush(Object msg) { //yangyc write + flush 的组合，将数据写到内存队列后，立即刷新内存队列，又将其中的数据写入到对端。
         return pipeline.writeAndFlush(msg);
     }
 
     @Override
-    public ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) {
+    public ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) { //yangyc write + flush 的组合，将数据写到内存队列后，立即刷新内存队列，又将其中的数据写入到对端。
         return pipeline.writeAndFlush(msg, promise);
     }
 
@@ -439,7 +439,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         }
 
         @Override
-        public RecvByteBufAllocator.Handle recvBufAllocHandle() {
+        public RecvByteBufAllocator.Handle recvBufAllocHandle() { //yangyc 控制读循环 + 预测下次创建 ByteBuf 容量大小
             if (recvHandle == null) {
                 recvHandle = config().getRecvByteBufAllocator().newHandle();
             }
@@ -462,28 +462,28 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         }
 
         @Override
-        public final void register(EventLoop eventLoop, final ChannelPromise promise) {
-            ObjectUtil.checkNotNull(eventLoop, "eventLoop");
-            if (isRegistered()) {
-                promise.setFailure(new IllegalStateException("registered to an event loop already"));
+        public final void register(EventLoop eventLoop, final ChannelPromise promise) { //yangyc-main 在 EventLoop 中执行注册逻辑
+            ObjectUtil.checkNotNull(eventLoop, "eventLoop"); //yangyc 校验传入的 eventLoop 非空
+            if (isRegistered()) { //yangyc 校验未注册，防止重复注册
+                promise.setFailure(new IllegalStateException("registered to an event loop already")); //yangyc 1.设置promise结果失败，2.回调监听者，执行失败的逻辑
                 return;
             }
-            if (!isCompatible(eventLoop)) {
+            if (!isCompatible(eventLoop)) { //yangyc 校验 Channel 和 eventLoop 匹配
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
 
-            AbstractChannel.this.eventLoop = eventLoop;
+            AbstractChannel.this.eventLoop = eventLoop; //yangyc 设置 Channel 的 eventLoop 属性，这个channel就是unsafe的外层对象。绑定关系，后续的channel上的事件或者任务都依赖当前EventLoop线程去处理。服务端：AbstractChannel.this=>NioServerSocketChannel对象
 
-            if (eventLoop.inEventLoop()) {
-                register0(promise);
+            if (eventLoop.inEventLoop()) { //yangyc 为了线程安全。判断当前线程是不是当前eventloop自己的线程
+                register0(promise); //yangyc 如果是当前线程，在 EventLoop 执行注册逻辑（channel先unregister再register走这里，否则走下面那个）
             } else {
                 try {
-                    eventLoop.execute(new Runnable() {
+                    eventLoop.execute(new Runnable() { //yangyc-main 提交异步任务到eventloop工作队列--异步任务1 SingleThreadEventExecutor#execute()
                         @Override
-                        public void run() {
-                            register0(promise);
+                        public void run() { //yangyc-main 提交异步任务到eventloop工作队列:任务1 将注册任务提交到eventloop工作队列中 【异步任务1--添加】--- xx#xx()时执行---
+                            register0(promise); //yangyc-main 如果不是当前线程， 在 EventLoop 中执行注册逻辑
                         }
                     });
                 } catch (Throwable t) {
@@ -497,27 +497,27 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
-        private void register0(ChannelPromise promise) {
+        private void register0(ChannelPromise promise) { //yangyc-main 异步任务1执行 由当前channel关联的EventLoop线程执行，参数：promise 表示注册结果，外部可以向它注册监听者..来完成注册后的逻辑
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
                 // call was outside of the eventLoop
-                if (!promise.setUncancellable() || !ensureOpen(promise)) {
+                if (!promise.setUncancellable() || !ensureOpen(promise)) { //yangyc 确保 Channel 是打开的
                     return;
                 }
-                boolean firstRegistration = neverRegistered;
-                doRegister();
-                neverRegistered = false;
-                registered = true;
+                boolean firstRegistration = neverRegistered; //yangyc 记录是否为首次注册
+                doRegister(); //yangyc-main 执行注册逻辑 -- JDK 层面
+                neverRegistered = false; //yangyc 标记首次注册为 false
+                registered = true;  //yangyc 标记 Channel 为已注册到多路复用器
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
-                pipeline.invokeHandlerAddedIfNeeded();
+                pipeline.invokeHandlerAddedIfNeeded(); //yangyc-main ChannelInitializer 的拆包，注册执行之后，通过一系列操作，调用到ChannelInitializer#initChannel进行拆包，并且移除自己。【异步任务2--执行】---在ServerBootstrap#init(...)添加---ch.eventLoop().execute...
 
-                safeSetSuccess(promise);
-                pipeline.fireChannelRegistered();
+                safeSetSuccess(promise); //yangyc 设置regFuture状态为成功，并回调注册相关的promise上注册的Listener事件
+                pipeline.fireChannelRegistered(); //yangyc 向当前 Channel 的 pipeline 发起注册完成事件， 关注注册事件的 Handle 做一些事情
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
-                if (isActive()) {
+                if (isActive()) { //yangyc isActive()=>是否完成绑定， NioServerSoceketChannel时，是未绑定的，不走下面逻辑. NioSocketChannel 会走下面逻辑
                     if (firstRegistration) {
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
@@ -538,7 +538,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         @Override
         public final void bind(final SocketAddress localAddress, final ChannelPromise promise) {
-            assertEventLoop();
+            assertEventLoop(); //yangyc 判断是否在 EventLoop 的线程中 ---- 只允许在 EventLoop 的线程中执行
 
             if (!promise.setUncancellable() || !ensureOpen(promise)) {
                 return;
@@ -557,25 +557,25 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         "address (" + localAddress + ") anyway as requested.");
             }
 
-            boolean wasActive = isActive();
+            boolean wasActive = isActive(); //yangyc 记录 Channel 是否激活 ---- 判断 ServerSocketChannel 是否绑定端口
             try {
-                doBind(localAddress);
+                doBind(localAddress); //yangyc 绑定 Channel 的端口 ---- （Java 原生 NIO ServerSocketChannel ）
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
                 closeIfClosed();
                 return;
             }
 
-            if (!wasActive && isActive()) {
+            if (!wasActive && isActive()) { //yangyc 若 Channel 是新激活的，触发通知 Channel 已激活的事件
                 invokeLater(new Runnable() {
                     @Override
-                    public void run() {
-                        pipeline.fireChannelActive();
+                    public void run() { //yangyc headContext 会响应 active 事件，再次向当前 Channel 的 pipeline 发起 read 事件。read 事件，就会修改channel在selector上注册感兴趣的事件为accept
+                        pipeline.fireChannelActive(); //yangyc-main 提交异步任务到eventloop工作队列: 【异步任务4--添加】--- xx#xx()时执行---
                     }
                 });
             }
 
-            safeSetSuccess(promise);
+            safeSetSuccess(promise); //yangyc 回调通知 promise 执行成功，并且唤醒主线程，因为我们在启动线程的时候，在该promise上执行wait操作，所以绑定完成之后要将其唤醒
         }
 
         @Override
@@ -612,7 +612,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         }
 
         @Override
-        public void close(final ChannelPromise promise) {
+        public void close(final ChannelPromise promise) { //yangyc 关闭 Channel
             assertEventLoop();
 
             ClosedChannelException closedChannelException =
@@ -674,19 +674,19 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             pipeline.fireUserEventTriggered(ChannelOutputShutdownEvent.INSTANCE);
         }
 
-        private void close(final ChannelPromise promise, final Throwable cause,
+        private void close(final ChannelPromise promise, final Throwable cause, //yangyc 关闭 Channel
                            final ClosedChannelException closeCause, final boolean notify) {
             if (!promise.setUncancellable()) {
-                return;
+                return; //yangyc 设置 Promise 不可取消
             }
 
-            if (closeInitiated) {
-                if (closeFuture.isDone()) {
+            if (closeInitiated) { //yangyc 若关闭已经标记初始化
+                if (closeFuture.isDone()) { //yangyc 关闭已经完成，直接通知 Promise 对象
                     // Closed already.
                     safeSetSuccess(promise);
                 } else if (!(promise instanceof VoidChannelPromise)) { // Only needed if no VoidChannelPromise.
                     // This means close() was called before so we just register a listener and return
-                    closeFuture.addListener(new ChannelFutureListener() {
+                    closeFuture.addListener(new ChannelFutureListener() { //yangyc 关闭未完成，通过监听器通知 Promise 对象
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
                             promise.setSuccess();
@@ -696,19 +696,19 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
-            closeInitiated = true;
+            closeInitiated = true; //yangyc 标记关闭已经初始化
 
-            final boolean wasActive = isActive();
-            final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
+            final boolean wasActive = isActive(); //yangyc 获得 Channel 是否激活
+            final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;  //yangyc 标记 outboundBuffer 为空
             this.outboundBuffer = null; // Disallow adding any messages and flushes to outboundBuffer.
-            Executor closeExecutor = prepareToClose();
-            if (closeExecutor != null) {
+            Executor closeExecutor = prepareToClose();  //yangyc 执行准备关闭
+            if (closeExecutor != null) {  //yangyc 若 closeExecutor 非空
                 closeExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
                         try {
                             // Execute the close.
-                            doClose0(promise);
+                            doClose0(promise); //yangyc 在 closeExecutor 中，执行关闭
                         } finally {
                             // Call invokeLater so closeAndDeregister is executed in the EventLoop again!
                             invokeLater(new Runnable() {
@@ -716,34 +716,34 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                                 public void run() {
                                     if (outboundBuffer != null) {
                                         // Fail all the queued messages
-                                        outboundBuffer.failFlushed(cause, notify);
-                                        outboundBuffer.close(closeCause);
+                                        outboundBuffer.failFlushed(cause, notify); //yangyc 写入数据( 消息 )到对端失败，通知相应数据对应的 Promise 失败
+                                        outboundBuffer.close(closeCause);  //yangyc 关闭内存队列
                                     }
-                                    fireChannelInactiveAndDeregister(wasActive);
+                                    fireChannelInactiveAndDeregister(wasActive); //yangyc 执行取消注册，并触发 Channel Inactive 事件到 pipeline 中
                                 }
                             });
                         }
                     }
                 });
-            } else {
+            } else { //yangyc 若 closeExecutor 为空
                 try {
                     // Close the channel and fail the queued messages in all cases.
-                    doClose0(promise);
+                    doClose0(promise); // 执行关闭
                 } finally {
                     if (outboundBuffer != null) {
                         // Fail all the queued messages.
-                        outboundBuffer.failFlushed(cause, notify);
-                        outboundBuffer.close(closeCause);
+                        outboundBuffer.failFlushed(cause, notify); //yangyc 写入数据( 消息 )到对端失败，通知相应数据对应的 Promise 失败。
+                        outboundBuffer.close(closeCause); //yangyc 关闭内存队列
                     }
                 }
-                if (inFlush0) {
+                if (inFlush0) { //yangyc 正在 flush 中，在 EventLoop 中执行执行取消注册，并触发 Channel Inactive 事件到 pipeline 中
                     invokeLater(new Runnable() {
                         @Override
                         public void run() {
                             fireChannelInactiveAndDeregister(wasActive);
                         }
                     });
-                } else {
+                } else {  //yangyc 不在 flush 中，直接执行执行取消注册，并触发 Channel Inactive 事件到 pipeline 中
                     fireChannelInactiveAndDeregister(wasActive);
                 }
             }
@@ -827,11 +827,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         }
 
         @Override
-        public final void beginRead() {
-            assertEventLoop();
+        public final void beginRead() { //yangyc 开始读取操作
+            assertEventLoop(); //yangyc 判断是否在 EventLoop 的线程中。
 
             try {
-                doBeginRead();
+                doBeginRead(); //yangyc 执行开始读取 ---- AbstractNioMessageChannel#doBeginRead
             } catch (final Exception e) {
                 invokeLater(new Runnable() {
                     @Override
@@ -843,74 +843,74 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
-        @Override
-        public final void write(Object msg, ChannelPromise promise) {
+        @Override //yangyc 参数1：一般是ByteBuf对象，其他是FileRegion; 参数2：本地写操作释放成功或失败的promise，可以注册监听事件
+        public final void write(Object msg, ChannelPromise promise) { //yangyc 将数据写到内存队列中
             assertEventLoop();
 
-            ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
-            if (outboundBuffer == null) {
+            ChannelOutboundBuffer outboundBuffer = this.outboundBuffer; //yangyc 每个channel都有一个属于它自己的 unsafe, 每个unsafe都有一个属于它自己的 outbountBuffer
+            if (outboundBuffer == null) { //yangyc 内存队列为空,一般是 Channel 已经关闭，所以通知 Promise 异常结果
                 try {
                     // release message now to prevent resource-leak
-                    ReferenceCountUtil.release(msg);
+                    ReferenceCountUtil.release(msg); //yangyc 释放消息( 对象 )相关的资源
                 } finally {
                     // If the outboundBuffer is null we know the channel was closed and so
                     // need to fail the future right away. If it is not null the handling of the rest
                     // will be done in flush0()
                     // See https://github.com/netty/netty/issues/2362
                     safeSetFailure(promise,
-                            newClosedChannelException(initialCloseCause, "write(Object, ChannelPromise)"));
+                            newClosedChannelException(initialCloseCause, "write(Object, ChannelPromise)")); //yangyc 通知 Promise 异常结果
                 }
                 return;
             }
 
-            int size;
+            int size; //yangyc msg 数据真正大小
             try {
-                msg = filterOutboundMessage(msg);
-                size = pipeline.estimatorHandle().size(msg);
+                msg = filterOutboundMessage(msg); //yangyc 过滤写入的消息(数据); msg一般是ByreBuf对象，分为 heap和direct; 如果是heap类型，会被转为direct类型 --- [AbstractNioByteChannel.java]
+                size = pipeline.estimatorHandle().size(msg); //yangyc 计算当前消息有效数据量大小
                 if (size < 0) {
                     size = 0;
                 }
             } catch (Throwable t) {
                 try {
-                    ReferenceCountUtil.release(msg);
+                    ReferenceCountUtil.release(msg); //yangyc 释放消息( 对象 )相关的资源
                 } finally {
-                    safeSetFailure(promise, t);
+                    safeSetFailure(promise, t);  //yangyc 通知 Promise 异常结果
                 }
                 return;
             }
 
-            outboundBuffer.addMessage(msg, size, promise);
+            outboundBuffer.addMessage(msg, size, promise); //yangyc 将ByteBuf数据加入出栈缓冲区。参数1：ByteBuf对象，并且归属于direct; 参数2：数据量大小； 参数3：本地写操作释放成功或失败的promise，可以注册监听事件
         }
 
         @Override
-        public final void flush() {
+        public final void flush() { //yangyc 刷新内存队列，将其中的数据写入到对端
             assertEventLoop();
 
             ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             if (outboundBuffer == null) {
-                return;
+                return; //yangyc 内存队列为 null ，一般是 Channel 已经关闭，所以直接返回。
             }
 
-            outboundBuffer.addFlush();
-            flush0();
+            outboundBuffer.addFlush(); //yangyc 准备刷新工作：1. 将 flushedEntry 指向第一个需要刷新的 entry 节点； 2. 计算出 flushedEntry->tailEntry 总共有多少个 entry 需要被刷新； 值记录在flushed字段
+            flush0(); //yangyc 执行 flush
         }
 
         @SuppressWarnings("deprecation")
         protected void flush0() {
             if (inFlush0) {
                 // Avoid re-entrance
-                return;
+                return; //yangyc 正在 flush 中，所以直接返回
             }
 
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             if (outboundBuffer == null || outboundBuffer.isEmpty()) {
-                return;
+                return; //yangyc 内存队列为 null ，一般是 Channel 已经关闭，所以直接返回
             }
 
-            inFlush0 = true;
+            inFlush0 = true;  //yangyc 标记当前 channel 正在执行刷新工作
 
             // Mark all pending write requests as failure if the channel is inactive.
-            if (!isActive()) {
+            if (!isActive()) { //yangyc 若未激活，通知 flush 失败
                 try {
                     // Check if we need to generate the exception at all.
                     if (!outboundBuffer.isEmpty()) {
@@ -922,17 +922,17 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         }
                     }
                 } finally {
-                    inFlush0 = false;
+                    inFlush0 = false; //yangyc 标记不在 flush 中
                 }
                 return;
             }
 
             try {
-                doWrite(outboundBuffer);
+                doWrite(outboundBuffer); //yangyc 执行真正的写入到对端
             } catch (Throwable t) {
                 handleWriteError(t);
             } finally {
-                inFlush0 = false;
+                inFlush0 = false; //yangyc 标记不在 flush 中
             }
         }
 
@@ -974,19 +974,19 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return unsafeVoidPromise;
         }
 
-        protected final boolean ensureOpen(ChannelPromise promise) {
+        protected final boolean ensureOpen(ChannelPromise promise) { //yangyc 确保 Channel 是打开的
             if (isOpen()) {
                 return true;
             }
 
-            safeSetFailure(promise, newClosedChannelException(initialCloseCause, "ensureOpen(ChannelPromise)"));
+            safeSetFailure(promise, newClosedChannelException(initialCloseCause, "ensureOpen(ChannelPromise)")); //yangyc 若未打开，回调通知 promise 异常
             return false;
         }
 
         /**
          * Marks the specified {@code promise} as success.  If the {@code promise} is done already, log a message.
          */
-        protected final void safeSetSuccess(ChannelPromise promise) {
+        protected final void safeSetSuccess(ChannelPromise promise) {  //yangyc 关闭已经完成，直接通知 Promise 对象
             if (!(promise instanceof VoidChannelPromise) && !promise.trySuccess()) {
                 logger.warn("Failed to mark a promise as success because it is done already: {}", promise);
             }
@@ -1021,7 +1021,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 //         -> handlerA.channelInactive() - (2) another inbound handler method called while in (1) yet
                 //
                 // which means the execution of two inbound handler methods of the same handler overlap undesirably.
-                eventLoop().execute(task);
+                eventLoop().execute(task); //yangyc 提交一个新的任务到 EventLoop 的线程中
             } catch (RejectedExecutionException e) {
                 logger.warn("Can't invoke task later as EventLoop rejected it", e);
             }
@@ -1126,7 +1126,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      * Invoked when a new message is added to a {@link ChannelOutboundBuffer} of this {@link AbstractChannel}, so that
      * the {@link Channel} implementation converts the message to another. (e.g. heap buffer -> direct buffer)
      */
-    protected Object filterOutboundMessage(Object msg) throws Exception {
+    protected Object filterOutboundMessage(Object msg) throws Exception { //yangyc 过滤写入的消息( 数据 )
         return msg;
     }
 

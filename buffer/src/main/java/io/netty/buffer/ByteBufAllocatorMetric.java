@@ -15,14 +15,14 @@
  */
 package io.netty.buffer;
 
-public interface ByteBufAllocatorMetric {
+public interface ByteBufAllocatorMetric { //yangyc ByteBufAllocator Metric 接口
     /**
      * Returns the number of bytes of heap memory used by a {@link ByteBufAllocator} or {@code -1} if unknown.
      */
-    long usedHeapMemory();
+    long usedHeapMemory(); //yangyc 已使用 Heap 占用内存大小
 
     /**
      * Returns the number of bytes of direct memory used by a {@link ByteBufAllocator} or {@code -1} if unknown.
      */
-    long usedDirectMemory();
+    long usedDirectMemory(); //yangyc 已使用 Direct 占用内存大小
 }

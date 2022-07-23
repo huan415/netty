@@ -88,7 +88,7 @@ public final class SocketUtils {
             return AccessController.doPrivileged(new PrivilegedExceptionAction<Boolean>() {
                 @Override
                 public Boolean run() throws IOException {
-                    return socketChannel.connect(remoteAddress);
+                    return socketChannel.connect(remoteAddress); //yangyc Java 原生 NIO SocketChannel 连接 远程地址，并返回是否连接完成( 成功 )
                 }
             });
         } catch (PrivilegedActionException e) {
@@ -111,12 +111,12 @@ public final class SocketUtils {
         }
     }
 
-    public static SocketChannel accept(final ServerSocketChannel serverSocketChannel) throws IOException {
+    public static SocketChannel accept(final ServerSocketChannel serverSocketChannel) throws IOException { //yangyc-main 参数：JDK 层面的 ServerSocketChannel, 接受客户端连接
         try {
             return AccessController.doPrivileged(new PrivilegedExceptionAction<SocketChannel>() {
                 @Override
                 public SocketChannel run() throws IOException {
-                    return serverSocketChannel.accept();
+                    return serverSocketChannel.accept(); //yangyc-main 接受客户端连接
                 }
             });
         } catch (PrivilegedActionException e) {

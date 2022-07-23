@@ -36,31 +36,31 @@ final class ChannelHandlerMask {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ChannelHandlerMask.class);
 
     // Using to mask which methods must be called for a ChannelHandler.
-    static final int MASK_EXCEPTION_CAUGHT = 1;
-    static final int MASK_CHANNEL_REGISTERED = 1 << 1;
-    static final int MASK_CHANNEL_UNREGISTERED = 1 << 2;
-    static final int MASK_CHANNEL_ACTIVE = 1 << 3;
-    static final int MASK_CHANNEL_INACTIVE = 1 << 4;
-    static final int MASK_CHANNEL_READ = 1 << 5;
-    static final int MASK_CHANNEL_READ_COMPLETE = 1 << 6;
-    static final int MASK_USER_EVENT_TRIGGERED = 1 << 7;
-    static final int MASK_CHANNEL_WRITABILITY_CHANGED = 1 << 8;
-    static final int MASK_BIND = 1 << 9;
-    static final int MASK_CONNECT = 1 << 10;
-    static final int MASK_DISCONNECT = 1 << 11;
-    static final int MASK_CLOSE = 1 << 12;
-    static final int MASK_DEREGISTER = 1 << 13;
-    static final int MASK_READ = 1 << 14;
-    static final int MASK_WRITE = 1 << 15;
-    static final int MASK_FLUSH = 1 << 16;
+    static final int MASK_EXCEPTION_CAUGHT = 1;                  //yangyc 0b 0000 0000 0000 0000 0000 0000 0000 0001
+    static final int MASK_CHANNEL_REGISTERED = 1 << 1;           //yangyc 0b 0000 0000 0000 0000 0000 0000 0000 0010
+    static final int MASK_CHANNEL_UNREGISTERED = 1 << 2;         //yangyc 0b 0000 0000 0000 0000 0000 0000 0000 0100
+    static final int MASK_CHANNEL_ACTIVE = 1 << 3;               //yangyc 0b 0000 0000 0000 0000 0000 0000 0000 1000
+    static final int MASK_CHANNEL_INACTIVE = 1 << 4;             //yangyc 0b 0000 0000 0000 0000 0000 0000 0001 0000
+    static final int MASK_CHANNEL_READ = 1 << 5;                 //yangyc 0b 0000 0000 0000 0000 0000 0000 0010 0000
+    static final int MASK_CHANNEL_READ_COMPLETE = 1 << 6;        //yangyc 0b 0000 0000 0000 0000 0000 0000 0100 0000
+    static final int MASK_USER_EVENT_TRIGGERED = 1 << 7;         //yangyc 0b 0000 0000 0000 0000 0000 0000 1000 0000
+    static final int MASK_CHANNEL_WRITABILITY_CHANGED = 1 << 8;  //yangyc 0b 0000 0000 0000 0000 0000 0001 0000 0000
+    static final int MASK_BIND = 1 << 9;                         //yangyc 0b 0000 0000 0000 0000 0000 0010 0000 0000
+    static final int MASK_CONNECT = 1 << 10;                     //yangyc 0b 0000 0000 0000 0000 0000 0100 0000 0000
+    static final int MASK_DISCONNECT = 1 << 11;                  //yangyc 0b 0000 0000 0000 0000 0000 1000 0000 0000
+    static final int MASK_CLOSE = 1 << 12;                       //yangyc 0b 0000 0000 0000 0000 0001 0000 0000 0000
+    static final int MASK_DEREGISTER = 1 << 13;                  //yangyc 0b 0000 0000 0000 0000 0010 0000 0000 0000
+    static final int MASK_READ = 1 << 14;                        //yangyc 0b 0000 0000 0000 0000 0100 0000 0000 0000
+    static final int MASK_WRITE = 1 << 15;                       //yangyc 0b 0000 0000 0000 0000 1000 0000 0000 0000
+    static final int MASK_FLUSH = 1 << 16;                       //yangyc 0b 0000 0000 0000 0001 0000 0000 0000 0000
 
-    static final int MASK_ONLY_INBOUND =  MASK_CHANNEL_REGISTERED |
+    static final int MASK_ONLY_INBOUND =  MASK_CHANNEL_REGISTERED |   //yangyc 计算出一个入栈事件的掩码  0b 0000 0000 0000 0000 0000 0001 1111 1110
             MASK_CHANNEL_UNREGISTERED | MASK_CHANNEL_ACTIVE | MASK_CHANNEL_INACTIVE | MASK_CHANNEL_READ |
             MASK_CHANNEL_READ_COMPLETE | MASK_USER_EVENT_TRIGGERED | MASK_CHANNEL_WRITABILITY_CHANGED;
-    private static final int MASK_ALL_INBOUND = MASK_EXCEPTION_CAUGHT | MASK_ONLY_INBOUND;
-    static final int MASK_ONLY_OUTBOUND =  MASK_BIND | MASK_CONNECT | MASK_DISCONNECT |
+    private static final int MASK_ALL_INBOUND = MASK_EXCEPTION_CAUGHT | MASK_ONLY_INBOUND;    //yangyc 计算出一个入栈事件的掩码（包含MASK_EXCEPTION_CAUGHT） 0b 0000 0000 0000 0000 0000 0001 1111 1111
+    static final int MASK_ONLY_OUTBOUND =  MASK_BIND | MASK_CONNECT | MASK_DISCONNECT |       //yangyc 计算出一个出栈事件的掩码  0b 0000 0000 0000 0001 1111 1110 0000 0000
             MASK_CLOSE | MASK_DEREGISTER | MASK_READ | MASK_WRITE | MASK_FLUSH;
-    private static final int MASK_ALL_OUTBOUND = MASK_EXCEPTION_CAUGHT | MASK_ONLY_OUTBOUND;
+    private static final int MASK_ALL_OUTBOUND = MASK_EXCEPTION_CAUGHT | MASK_ONLY_OUTBOUND;  //yangyc 计算出一个出栈事件的掩码（包含MASK_EXCEPTION_CAUGHT）  0b 0000 0000 0000 0001 1111 1110 0000 0001
 
     private static final FastThreadLocal<Map<Class<? extends ChannelHandler>, Integer>> MASKS =
             new FastThreadLocal<Map<Class<? extends ChannelHandler>, Integer>>() {
@@ -73,7 +73,7 @@ final class ChannelHandlerMask {
     /**
      * Return the {@code executionMask}.
      */
-    static int mask(Class<? extends ChannelHandler> clazz) {
+    static int mask(Class<? extends ChannelHandler> clazz) {  //yangyc 参数：hanlder 真实业务处理器的 class
         // Try to obtain the mask from the cache first. If this fails calculate it and put it in the cache for fast
         // lookup in the future.
         Map<Class<? extends ChannelHandler>, Integer> cache = MASKS.get();
@@ -86,16 +86,16 @@ final class ChannelHandlerMask {
     }
 
     /**
-     * Calculate the {@code executionMask}.
+     * Calculate the {@code executionMask}. //yangyc 返回值：二进制中，对应下标的位，代表指定的方法，位为1：说明指定的方法在 handlerType 类型中进行了实现； 位为0：说明指定的方法在 handlerType 类型中没有进行实现，
      */
-    private static int mask0(Class<? extends ChannelHandler> handlerType) {
-        int mask = MASK_EXCEPTION_CAUGHT;
+    private static int mask0(Class<? extends ChannelHandler> handlerType) {  //yangyc 参数：hanlder 真实业务处理器的 class
+        int mask = MASK_EXCEPTION_CAUGHT;                     //yangyc 0b 0000 0000 0000 0000 0000 0000 0000 0001
         try {
-            if (ChannelInboundHandler.class.isAssignableFrom(handlerType)) {
-                mask |= MASK_ALL_INBOUND;
-
-                if (isSkippable(handlerType, "channelRegistered", ChannelHandlerContext.class)) {
-                    mask &= ~MASK_CHANNEL_REGISTERED;
+            if (ChannelInboundHandler.class.isAssignableFrom(handlerType)) {  //yangyc 条件成立：说明 handlerType 类型属于 ChannelInboundHandler 子类
+                mask |= MASK_ALL_INBOUND;                     //yangyc  0b 0000 0000 0000 0000 0000 0001 1111 1111
+                //yangyc isSkippable() 方法返回 hanlderType 这个 class 有没有重新指定的方法，重新指定之后，指定方法上的@Skip注解就有了
+                if (isSkippable(handlerType, "channelRegistered", ChannelHandlerContext.class)) { //yangyc 参数1：hanlder 真实业务处理器的 class, 参数2：检查的方法名，参数3：ChannelHanlderContext.class
+                    mask &= ~MASK_CHANNEL_REGISTERED; //yangyc 进入这个方法，说明当前 handlerType 没有重新指定方法. 把当前方法对应的位设置成0
                 }
                 if (isSkippable(handlerType, "channelUnregistered", ChannelHandlerContext.class)) {
                     mask &= ~MASK_CHANNEL_UNREGISTERED;
@@ -164,7 +164,7 @@ final class ChannelHandlerMask {
     }
 
     @SuppressWarnings("rawtypes")
-    private static boolean isSkippable(
+    private static boolean isSkippable(  //yangyc 参数1：hanlder 真实业务处理器的 class, 参数2：检查的方法名，参数3：ChannelHanlderContext.class
             final Class<?> handlerType, final String methodName, final Class<?>... paramTypes) throws Exception {
         return AccessController.doPrivileged(new PrivilegedExceptionAction<Boolean>() {
             @Override

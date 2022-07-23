@@ -132,7 +132,7 @@ import java.util.PriorityQueue;
  * 4) save the merged run
  *
  */
-final class PoolChunk<T> implements PoolChunkMetric {
+final class PoolChunk<T> implements PoolChunkMetric { //yangyc 实现 PoolChunkMetric 接口，Netty 对 Jemalloc Chunk 的实现类
     private static final int SIZE_BIT_LENGTH = 15;
     private static final int INUSED_BIT_LENGTH = 1;
     private static final int SUBPAGE_BIT_LENGTH = 1;
@@ -143,10 +143,10 @@ final class PoolChunk<T> implements PoolChunkMetric {
     static final int SIZE_SHIFT = INUSED_BIT_LENGTH + IS_USED_SHIFT;
     static final int RUN_OFFSET_SHIFT = SIZE_BIT_LENGTH + SIZE_SHIFT;
 
-    final PoolArena<T> arena;
+    final PoolArena<T> arena; //yangyc 所属 Arena 对象
     final Object base;
-    final T memory;
-    final boolean unpooled;
+    final T memory; //yangyc 内存空间
+    final boolean unpooled; //yangyc 是否非池化
 
     /**
      * store the first page and last page of each avail run
@@ -161,16 +161,16 @@ final class PoolChunk<T> implements PoolChunkMetric {
     /**
      * manage all subpages in this chunk
      */
-    private final PoolSubpage<T>[] subpages;
+    private final PoolSubpage<T>[] subpages; //yangyc PoolSubpage 数组
 
     /**
      * Accounting of pinned memory – memory that is currently in use by ByteBuf instances.
      */
     private final LongCounter pinnedBytes = PlatformDependent.newLongCounter();
 
-    private final int pageSize;
+    private final int pageSize; //yangyc Page 大小，默认 8KB = 8192B
     private final int pageShifts;
-    private final int chunkSize;
+    private final int chunkSize; //yangyc Chunk 内存块占用大小。默认为 16M = 16 * 1024
 
     // Use as cache for ByteBuffer created from the memory. These are just duplicates and so are only a container
     // around the memory itself. These are often needed for operations within the Pooled*ByteBuf and so
@@ -179,29 +179,29 @@ final class PoolChunk<T> implements PoolChunkMetric {
     // This may be null if the PoolChunk is unpooled as pooling the ByteBuffer instances does not make any sense here.
     private final Deque<ByteBuffer> cachedNioBuffers;
 
-    int freeBytes;
+    int freeBytes; //yangyc 剩余可用字节数
 
-    PoolChunkList<T> parent;
-    PoolChunk<T> prev;
-    PoolChunk<T> next;
+    PoolChunkList<T> parent; //yangyc 所属 PoolChunkList 对象
+    PoolChunk<T> prev; //yangyc 上一个 Chunk 对象
+    PoolChunk<T> next; //yangyc 下一个 Chunk 对象
 
     // TODO: Test if adding padding helps under contention
     //private long pad0, pad1, pad2, pad3, pad4, pad5, pad6, pad7;
 
     @SuppressWarnings("unchecked")
-    PoolChunk(PoolArena<T> arena, Object base, T memory, int pageSize, int pageShifts, int chunkSize, int maxPageIdx) {
+    PoolChunk(PoolArena<T> arena, Object base, T memory, int pageSize, int pageShifts, int chunkSize, int maxPageIdx) {  //yangyc 参数1：当前 directArena 对象， poolChunk需要知道他爸爸是谁。参数2：ByteBuf 对象。参数3：ByteBuf 对象。参数4：8k。参数5：13。参数6：16mb。
         unpooled = false;
         this.arena = arena;
         this.base = base;
-        this.memory = memory;
+        this.memory = memory; //yangyc 让 chunk 直接持有 byteBuffer 对象
         this.pageSize = pageSize;
         this.pageShifts = pageShifts;
         this.chunkSize = chunkSize;
-        freeBytes = chunkSize;
+        freeBytes = chunkSize; //yangyc 默认 16mb
 
         runsAvail = newRunsAvailqueueArray(maxPageIdx);
         runsAvailMap = new LongLongHashMap(-1);
-        subpages = new PoolSubpage[chunkSize >> pageShifts];
+        subpages = new PoolSubpage[chunkSize >> pageShifts]; //yangyc trunk 默认情况下，最多可以开辟 2048 个 subpage，所以数组2048
 
         //insert initial run, offset = 0, pages = chunkSize / pageSize
         int pages = chunkSize >> pageShifts;
@@ -300,7 +300,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
         return 100 - freePercentage;
     }
 
-    boolean allocate(PooledByteBuf<T> buf, int reqCapacity, int sizeIdx, PoolThreadCache cache) {
+    boolean allocate(PooledByteBuf<T> buf, int reqCapacity, int sizeIdx, PoolThreadCache cache) { //yangyc 参数1：返回给业务使用的 ByteBuf 对象。 参数2：业务层使用的内存容量。
         final long handle;
         if (sizeIdx <= arena.smallMaxSizeIdx) {
             // small
@@ -325,7 +325,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
         return true;
     }
 
-    private long allocateRun(int runSize) {
+    private long allocateRun(int runSize) { //yangyc 规格后的大小，8K, 16K...`
         int pages = runSize >> pageShifts;
         int pageIdx = arena.pages2pageIdx(pages);
 
@@ -428,8 +428,8 @@ final class PoolChunk<T> implements PoolChunkMetric {
     private long allocateSubpage(int sizeIdx) {
         // Obtain the head of the PoolSubPage pool that is owned by the PoolArena and synchronize on it.
         // This is need as we may add it back and so alter the linked-list structure.
-        PoolSubpage<T> head = arena.findSubpagePoolHead(sizeIdx);
-        synchronized (head) {
+        PoolSubpage<T> head = arena.findSubpagePoolHead(sizeIdx); //yangyc 获得对应内存规格的 Subpage 双向链表的 head 节点
+        synchronized (head) {  //yangyc 加锁，分配过程会修改双向链表的结构，会存在多线程的情况
             //allocate a new run
             int runSize = calculateRunSize(sizeIdx);
             //runSize must be multiples of pageSize

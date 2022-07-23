@@ -26,26 +26,26 @@ import java.util.concurrent.atomic.AtomicLong;
 @UnstableApi
 public final class DefaultEventExecutorChooserFactory implements EventExecutorChooserFactory {
 
-    public static final DefaultEventExecutorChooserFactory INSTANCE = new DefaultEventExecutorChooserFactory();
+    public static final DefaultEventExecutorChooserFactory INSTANCE = new DefaultEventExecutorChooserFactory(); //yangyc 单例
 
     private DefaultEventExecutorChooserFactory() { }
 
     @Override
-    public EventExecutorChooser newChooser(EventExecutor[] executors) {
+    public EventExecutorChooser newChooser(EventExecutor[] executors) { //yangyc  chooser工厂类创建 EventExecutor 选择器，有两种：PowerOfTwoEventExecutorChooser和GenericEventExecutorChooser
         if (isPowerOfTwo(executors.length)) {
-            return new PowerOfTwoEventExecutorChooser(executors);
+            return new PowerOfTwoEventExecutorChooser(executors); //yangyc 内部类
         } else {
-            return new GenericEventExecutorChooser(executors);
+            return new GenericEventExecutorChooser(executors); //yangyc 内部类
         }
     }
 
-    private static boolean isPowerOfTwo(int val) {
+    private static boolean isPowerOfTwo(int val) { //yangyc 判断 EventExecutor 数组的大小是否为 2 的幂次方
         return (val & -val) == val;
     }
 
     private static final class PowerOfTwoEventExecutorChooser implements EventExecutorChooser {
-        private final AtomicInteger idx = new AtomicInteger();
-        private final EventExecutor[] executors;
+        private final AtomicInteger idx = new AtomicInteger(); //yangyc 自增序列
+        private final EventExecutor[] executors; //yangyc EventExecutor 数组
 
         PowerOfTwoEventExecutorChooser(EventExecutor[] executors) {
             this.executors = executors;
@@ -61,8 +61,8 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
         // Use a 'long' counter to avoid non-round-robin behaviour at the 32-bit overflow boundary.
         // The 64-bit long solves this by placing the overflow so far into the future, that no system
         // will encounter this in practice.
-        private final AtomicLong idx = new AtomicLong();
-        private final EventExecutor[] executors;
+        private final AtomicLong idx = new AtomicLong();  //yangyc 自增序列
+        private final EventExecutor[] executors; //yangyc EventExecutor 数组
 
         GenericEventExecutorChooser(EventExecutor[] executors) {
             this.executors = executors;

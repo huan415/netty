@@ -25,19 +25,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
+final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> { //yangyc 基于 ByteBuffer 的可重用 ByteBuf 实现类。所以，泛型 T 为 ByteBuffer
 
     private static final ObjectPool<PooledDirectByteBuf> RECYCLER = ObjectPool.newPool(
             new ObjectCreator<PooledDirectByteBuf>() {
         @Override
         public PooledDirectByteBuf newObject(Handle<PooledDirectByteBuf> handle) {
-            return new PooledDirectByteBuf(handle, 0);
+            return new PooledDirectByteBuf(handle, 0); //yangyc 真正创建 PooledDirectByteBuf 对象
         }
     });
 
     static PooledDirectByteBuf newInstance(int maxCapacity) {
-        PooledDirectByteBuf buf = RECYCLER.get();
-        buf.reuse(maxCapacity);
+        PooledDirectByteBuf buf = RECYCLER.get(); //yangyc 从 Recycler 的对象池中获得 PooledDirectByteBuf 对象
+        buf.reuse(maxCapacity); //yangyc 重置 PooledDirectByteBuf 的属性
         return buf;
     }
 
@@ -46,13 +46,13 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     }
 
     @Override
-    protected ByteBuffer newInternalNioBuffer(ByteBuffer memory) {
-        return memory.duplicate();
+    protected ByteBuffer newInternalNioBuffer(ByteBuffer memory) { //yangyc 获得临时 ByteBuf 对象( tmpNioBuf )
+        return memory.duplicate(); //yangyc 复制一个 一模一样的 ByteBuffer 对象，复制处来的byteBuffer与元对象指向同一块内存空间
     }
 
     @Override
     public boolean isDirect() {
-        return true;
+        return true; //yangyc 获得内部类型是否为 Direct ，返回 true
     }
 
     @Override
@@ -280,10 +280,10 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     }
 
     @Override
-    public ByteBuf copy(int index, int length) {
-        checkIndex(index, length);
-        ByteBuf copy = alloc().directBuffer(length, maxCapacity());
-        return copy.writeBytes(this, index, length);
+    public ByteBuf copy(int index, int length) { //yangyc 复制指定范围的数据到新创建的 Direct ByteBuf 对象
+        checkIndex(index, length);  //yangyc 校验索引
+        ByteBuf copy = alloc().directBuffer(length, maxCapacity());  //yangyc 创建一个 Direct ByteBuf 对象
+        return copy.writeBytes(this, index, length); //yangyc 写入数据
     }
 
     @Override

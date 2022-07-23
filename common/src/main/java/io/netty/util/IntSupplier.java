@@ -25,5 +25,5 @@ public interface IntSupplier {
      *
      * @return a result
      */
-    int get() throws Exception;
+    int get() throws Exception; //yangyc 返回当前 Channel 新增的 IO 就绪事件的数量
 }

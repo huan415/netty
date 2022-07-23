@@ -29,35 +29,35 @@ package io.netty.util;
  * reference count becomes 0.
  * </p>
  */
-public interface ReferenceCounted {
+public interface ReferenceCounted { //yangyc ByteBuf 是最值得注意的，它使用了引用计数来改进分配内存和释放内存的性能
     /**
      * Returns the reference count of this object.  If {@code 0}, it means this object has been deallocated.
      */
-    int refCnt();
+    int refCnt(); //yangyc 获得引用计数
 
     /**
      * Increases the reference count by {@code 1}.
      */
-    ReferenceCounted retain();
+    ReferenceCounted retain(); //yangyc 增加引用计数 1
 
     /**
      * Increases the reference count by the specified {@code increment}.
      */
-    ReferenceCounted retain(int increment);
+    ReferenceCounted retain(int increment); //yangyc 增加引用计数 n
 
     /**
      * Records the current access location of this object for debugging purposes.
      * If this object is determined to be leaked, the information recorded by this operation will be provided to you
      * via {@link ResourceLeakDetector}.  This method is a shortcut to {@link #touch(Object) touch(null)}.
      */
-    ReferenceCounted touch();
+    ReferenceCounted touch(); //yangyc  等价于调用 #touch(null) 方法
 
     /**
      * Records the current access location of this object with an additional arbitrary information for debugging
      * purposes.  If this object is determined to be leaked, the information recorded by this operation will be
      * provided to you via {@link ResourceLeakDetector}.
      */
-    ReferenceCounted touch(Object hint);
+    ReferenceCounted touch(Object hint); //yangyc 主动记录一个 hint 给 ResourceLeakDetector ，方便我们在发现内存泄露有更多的信息进行排查
 
     /**
      * Decreases the reference count by {@code 1} and deallocates this object if the reference count reaches at
@@ -65,7 +65,7 @@ public interface ReferenceCounted {
      *
      * @return {@code true} if and only if the reference count became {@code 0} and this object has been deallocated
      */
-    boolean release();
+    boolean release(); //yangyc 减少引用计数 1, 当引用计数为 0 时，释放
 
     /**
      * Decreases the reference count by the specified {@code decrement} and deallocates this object if the reference
@@ -73,5 +73,5 @@ public interface ReferenceCounted {
      *
      * @return {@code true} if and only if the reference count became {@code 0} and this object has been deallocated
      */
-    boolean release(int decrement);
+    boolean release(int decrement); //yangyc 减少引用计数 n,当引用计数为 0 时，释放
 }

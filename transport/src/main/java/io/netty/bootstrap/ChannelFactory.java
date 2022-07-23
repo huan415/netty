@@ -25,5 +25,5 @@ public interface ChannelFactory<T extends Channel> {
     /**
      * Creates a new channel.
      */
-    T newChannel();
+    T newChannel(); //yangyc-main 创建 Channel 对象
 }

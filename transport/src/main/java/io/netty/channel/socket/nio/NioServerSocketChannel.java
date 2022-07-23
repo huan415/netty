@@ -42,16 +42,20 @@ import java.util.Map;
 /**
  * A {@link io.netty.channel.socket.ServerSocketChannel} implementation which uses
  * NIO selector based implementation to accept new connections.
+ * //yangyc 接受( accept )客户端连接的过程
+ * 1.服务端 NioServerSocketChannel 的 boss EventLoop 线程轮询是否有新的客户端连接接入。
+ * 2.当轮询到有新的连接接入，封装连入的客户端的 SocketChannel 为 Netty NioSocketChannel 对象。
+ * 3.选择一个服务端 NioServerSocketChannel 的 worker EventLoop ，将客户端的 NioSocketChannel 注册到其上。并且，注册客户端的 NioSocketChannel 的读事件，开始轮询该客户端是否有数据写入
  */
-public class NioServerSocketChannel extends AbstractNioMessageChannel
+public class NioServerSocketChannel extends AbstractNioMessageChannel //yangyc NioServerSocketChannel 读取新的连接
                              implements io.netty.channel.socket.ServerSocketChannel {
 
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
-    private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
+    private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider(); //yangyc 静态属性，默认的 SelectorProvider 实现类
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
 
-    private static ServerSocketChannel newSocket(SelectorProvider provider) {
+    private static ServerSocketChannel newSocket(SelectorProvider provider) { //yangyc newSocket(DEFAULT_SELECTOR_PROVIDER)=>返回JDK层面的ServerSocketChannel
         try {
             /**
              *  Use the {@link SelectorProvider} to open {@link SocketChannel} and so remove condition in
@@ -66,13 +70,13 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         }
     }
 
-    private final ServerSocketChannelConfig config;
+    private final ServerSocketChannelConfig config; //yangyc Channel 对应的配置对象
 
     /**
      * Create a new instance
      */
     public NioServerSocketChannel() {
-        this(newSocket(DEFAULT_SELECTOR_PROVIDER));
+        this(newSocket(DEFAULT_SELECTOR_PROVIDER)); //yangyc netty包装JDK层面的ServerSocketChannel; newSocket(DEFAULT_SELECTOR_PROVIDER)=>返回JDK层面的ServerSocketChannel
     }
 
     /**
@@ -85,9 +89,10 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     /**
      * Create a new instance using the given {@link ServerSocketChannel}.
      */
-    public NioServerSocketChannel(ServerSocketChannel channel) {
-        super(null, channel, SelectionKey.OP_ACCEPT);
-        config = new NioServerSocketChannelConfig(this, javaChannel().socket());
+    public NioServerSocketChannel(ServerSocketChannel channel) { //yangyc-main 初始化 Channel 并设置感兴趣的事件（SelectionKey.OP_ACCEPT）
+        //yangyc 参数1：null, 参数2:JDK层面的ServerSocketChannel, 参数3:感兴趣的时间，连接事件
+        super(null, channel, SelectionKey.OP_ACCEPT); //yangyc-main ----- 在父类AbstractNioChannel里设置成非阻塞, 在父类AbstractChannel里初始化pipeline
+        config = new NioServerSocketChannelConfig(this, javaChannel().socket()); //yangyc-main 初始化 config 属性，创建 NioServerSocketChannelConfig 对象。
     }
 
     @Override
@@ -143,19 +148,19 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     }
 
     @Override
-    protected int doReadMessages(List<Object> buf) throws Exception {
-        SocketChannel ch = SocketUtils.accept(javaChannel());
+    protected int doReadMessages(List<Object> buf) throws Exception { //yangyc 读取客户端的连接到方法参数 buf 中
+        SocketChannel ch = SocketUtils.accept(javaChannel()); //yangyc-main 参数：JDK 层面的 ServerSocketChannel, 内部通过 serverSocketChannel.accept() 获取到客户端的 SocketChannel (对照 NIO 代码)
 
         try {
             if (ch != null) {
-                buf.add(new NioSocketChannel(this, ch));
+                buf.add(new NioSocketChannel(this, ch)); //yangyc-main 将 JDK 层面的 SocketChannel 包装成 NioSocketChannel
                 return 1;
             }
         } catch (Throwable t) {
             logger.warn("Failed to create a new channel from an accepted socket.", t);
 
             try {
-                ch.close();
+                ch.close();  //yangyc 发生异常，关闭客户端的 SocketChannel 连接
             } catch (Throwable t2) {
                 logger.warn("Failed to close a socket.", t2);
             }

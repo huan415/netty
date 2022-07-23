@@ -222,7 +222,7 @@ import java.util.NoSuchElementException;
 public interface ChannelPipeline
         extends ChannelInboundInvoker, ChannelOutboundInvoker, Iterable<Entry<String, ChannelHandler>> {
 
-    /**
+    /** yangyc =============添加 ChannelHandler===================
      * Inserts a {@link ChannelHandler} at the first position of this pipeline.
      *
      * @param name     the name of the handler to insert first
@@ -368,7 +368,7 @@ public interface ChannelPipeline
      */
     ChannelPipeline addFirst(EventExecutorGroup group, ChannelHandler... handlers);
 
-    /**
+    /** yangyc 添加任意数量的 ChannelHandler 对象
      * Inserts {@link ChannelHandler}s at the last position of this pipeline.
      *
      * @param handlers  the handlers to insert last
@@ -386,7 +386,7 @@ public interface ChannelPipeline
      */
     ChannelPipeline addLast(EventExecutorGroup group, ChannelHandler... handlers);
 
-    /**
+    /** yangyc =============删除 ChannelHandler===================
      * Removes the specified {@link ChannelHandler} from this pipeline.
      *
      * @param  handler          the {@link ChannelHandler} to remove
@@ -396,7 +396,7 @@ public interface ChannelPipeline
      * @throws NullPointerException
      *         if the specified handler is {@code null}
      */
-    ChannelPipeline remove(ChannelHandler handler);
+    ChannelPipeline remove(ChannelHandler handler); //yangyc 从 pipeline 移除指定的 ChannelHandler 对象
 
     /**
      * Removes the {@link ChannelHandler} with the specified name from this pipeline.
@@ -447,7 +447,7 @@ public interface ChannelPipeline
      */
     ChannelHandler removeLast();
 
-    /**
+    /** yangyc =============替换 ChannelHandler===================
      * Replaces the specified {@link ChannelHandler} with a new handler in this pipeline.
      *
      * @param  oldHandler    the {@link ChannelHandler} to be replaced
@@ -509,7 +509,7 @@ public interface ChannelPipeline
     <T extends ChannelHandler> T replace(Class<T> oldHandlerType, String newName,
                                          ChannelHandler newHandler);
 
-    /**
+    /** yangyc =============查询 ChannelHandler===================
      * Returns the first {@link ChannelHandler} in this pipeline.
      *
      * @return the first handler.  {@code null} if this pipeline is empty.
@@ -599,7 +599,7 @@ public interface ChannelPipeline
      * handler names and whose values are handlers.
      */
     Map<String, ChannelHandler> toMap();
-
+    //yangyc =============ChannelInboundInvoker ===================
     @Override
     ChannelPipeline fireChannelRegistered();
 
@@ -626,7 +626,7 @@ public interface ChannelPipeline
 
     @Override
     ChannelPipeline fireChannelWritabilityChanged();
-
+    //yangyc =============ChannelOutboundInvoker  ===================
     @Override
     ChannelPipeline flush();
 }

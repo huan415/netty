@@ -49,7 +49,7 @@ public class DefaultChannelConfig implements ChannelConfig {
 
     private static final int DEFAULT_CONNECT_TIMEOUT = 30000;
 
-    private static final AtomicIntegerFieldUpdater<DefaultChannelConfig> AUTOREAD_UPDATER =
+    private static final AtomicIntegerFieldUpdater<DefaultChannelConfig> AUTOREAD_UPDATER =  //yangyc autoRead 的原子更新器
             AtomicIntegerFieldUpdater.newUpdater(DefaultChannelConfig.class, "autoRead");
     private static final AtomicReferenceFieldUpdater<DefaultChannelConfig, WriteBufferWaterMark> WATERMARK_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(
@@ -66,7 +66,7 @@ public class DefaultChannelConfig implements ChannelConfig {
     private volatile int maxMessagesPerWrite = Integer.MAX_VALUE;
 
     @SuppressWarnings("FieldMayBeFinal")
-    private volatile int autoRead = 1;
+    private volatile int autoRead = 1; //yangyc 是否开启自动读取的开关; 1:开启; 0:关闭
     private volatile boolean autoClose = true;
     private volatile WriteBufferWaterMark writeBufferWaterMark = WriteBufferWaterMark.DEFAULT;
     private volatile boolean pinEventExecutor = true;
@@ -109,7 +109,7 @@ public class DefaultChannelConfig implements ChannelConfig {
 
         boolean setAllOptions = true;
         for (Entry<ChannelOption<?>, ?> e: options.entrySet()) {
-            if (!setOption((ChannelOption<Object>) e.getKey(), e.getValue())) {
+            if (!setOption((ChannelOption<Object>) e.getKey(), e.getValue())) { //yangyc 调用相应的 #setXXX(...) 方法
                 setAllOptions = false;
             }
         }
@@ -336,11 +336,11 @@ public class DefaultChannelConfig implements ChannelConfig {
 
     @Override
     public ChannelConfig setAutoRead(boolean autoRead) {
-        boolean oldAutoRead = AUTOREAD_UPDATER.getAndSet(this, autoRead ? 1 : 0) == 1;
+        boolean oldAutoRead = AUTOREAD_UPDATER.getAndSet(this, autoRead ? 1 : 0) == 1; //yangyc 原子更新，并且获得更新前的值
         if (autoRead && !oldAutoRead) {
-            channel.read();
+            channel.read(); //yangyc 意味着恢复重启开启接受新的客户端连接。所以调用 NioServerSocketChannel#read() 方法，后续的逻辑
         } else if (!autoRead && oldAutoRead) {
-            autoReadCleared();
+            autoReadCleared(); //yangyc 意味着关闭接受新的客户端连接。所以调用 #autoReadCleared() 方法，移除对 SelectionKey.OP_ACCEPT 事件的感兴趣
         }
         return this;
     }

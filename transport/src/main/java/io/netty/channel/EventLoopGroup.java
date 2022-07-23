@@ -27,19 +27,19 @@ public interface EventLoopGroup extends EventExecutorGroup {
      * Return the next {@link EventLoop} to use
      */
     @Override
-    EventLoop next();
+    EventLoop next(); //yangyc-main 选择下一个 EventLoop 对象
 
     /**
      * Register a {@link Channel} with this {@link EventLoop}. The returned {@link ChannelFuture}
      * will get notified once the registration was complete.
      */
-    ChannelFuture register(Channel channel);
+    ChannelFuture register(Channel channel); //yangyc-main 从 boosGroup 里拿一个线程来处理 Channel，并将其注册到自己的 Selector
 
     /**
      * Register a {@link Channel} with this {@link EventLoop} using a {@link ChannelFuture}. The passed
      * {@link ChannelFuture} will get notified once the registration was complete and also will get returned.
      */
-    ChannelFuture register(ChannelPromise promise);
+    ChannelFuture register(ChannelPromise promise); //yangyc 注册 Channel 到 EventLoopGroup 中。实际上，EventLoopGroup 会分配一个 EventLoop 给该 Channel 注册
 
     /**
      * Register a {@link Channel} with this {@link EventLoop}. The passed {@link ChannelFuture}
@@ -48,5 +48,5 @@ public interface EventLoopGroup extends EventExecutorGroup {
      * @deprecated Use {@link #register(ChannelPromise)} instead.
      */
     @Deprecated
-    ChannelFuture register(Channel channel, ChannelPromise promise);
+    ChannelFuture register(Channel channel, ChannelPromise promise); //yangyc 注册 Channel 到 EventLoopGroup 中。实际上，EventLoopGroup 会分配一个 EventLoop 给该 Channel 注册
 }

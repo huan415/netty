@@ -35,14 +35,14 @@ import static io.netty.util.internal.ObjectUtil.checkPositiveOrZero;
  * {@link UnpooledByteBufAllocator#directBuffer(int, int)}, {@link Unpooled#directBuffer(int)} and
  * {@link Unpooled#wrappedBuffer(ByteBuffer)} instead of calling the constructor explicitly.
  */
-public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
+public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf { //yangyc PooledDirectByteBuf 的非池化 ByteBuf 实现类
 
-    private final ByteBufAllocator alloc;
+    private final ByteBufAllocator alloc; //yangyc ByteBuf 分配器对象
 
-    ByteBuffer buffer; // accessed by UnpooledUnsafeNoCleanerDirectByteBuf.reallocateDirect()
-    private ByteBuffer tmpNioBuf;
-    private int capacity;
-    private boolean doNotFree;
+    ByteBuffer buffer; // accessed by UnpooledUnsafeNoCleanerDirectByteBuf.reallocateDirect()  //yangyc 数据 ByteBuffer 对象
+    private ByteBuffer tmpNioBuf;  //yangyc 临时 ByteBuffer 对象
+    private int capacity; //yangyc 容量
+    private boolean doNotFree; //yangyc 是否需要释放
 
     /**
      * Creates a new direct buffer.
@@ -51,7 +51,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
      * @param maxCapacity     the maximum capacity of the underlying direct buffer
      */
     public UnpooledDirectByteBuf(ByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
-        super(maxCapacity);
+        super(maxCapacity); //yangyc 设置最大容量
         ObjectUtil.checkNotNull(alloc, "alloc");
         checkPositiveOrZero(initialCapacity, "initialCapacity");
         checkPositiveOrZero(maxCapacity, "maxCapacity");
@@ -61,7 +61,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
         }
 
         this.alloc = alloc;
-        setByteBuffer(allocateDirect(initialCapacity), false);
+        setByteBuffer(allocateDirect(initialCapacity), false); //yangyc 创建 Direct ByteBuffer 对象 并设置数据 ByteBuffer 对象
     }
 
     /**
@@ -75,17 +75,17 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
 
     UnpooledDirectByteBuf(ByteBufAllocator alloc, ByteBuffer initialBuffer,
             int maxCapacity, boolean doFree, boolean slice) {
-        super(maxCapacity);
+        super(maxCapacity); //yangyc 设置最大容量
         ObjectUtil.checkNotNull(alloc, "alloc");
         ObjectUtil.checkNotNull(initialBuffer, "initialBuffer");
-        if (!initialBuffer.isDirect()) {
+        if (!initialBuffer.isDirect()) {  //yangyc 必须是 Direct
             throw new IllegalArgumentException("initialBuffer is not a direct buffer.");
         }
-        if (initialBuffer.isReadOnly()) {
+        if (initialBuffer.isReadOnly()) { //yangyc 必须可写
             throw new IllegalArgumentException("initialBuffer is a read-only buffer.");
         }
 
-        int initialCapacity = initialBuffer.remaining();
+        int initialCapacity = initialBuffer.remaining();  //yangyc 获得剩余可读字节数，作为初始容量大小
         if (initialCapacity > maxCapacity) {
             throw new IllegalArgumentException(String.format(
                     "initialCapacity(%d) > maxCapacity(%d)", initialCapacity, maxCapacity));
@@ -93,7 +93,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
 
         this.alloc = alloc;
         doNotFree = !doFree;
-        setByteBuffer((slice ? initialBuffer.slice() : initialBuffer).order(ByteOrder.BIG_ENDIAN), false);
+        setByteBuffer((slice ? initialBuffer.slice() : initialBuffer).order(ByteOrder.BIG_ENDIAN), false); //yangyc 设置数据 ByteBuffer 对象。如果有老的自己的( 指的是自己创建的 ) buffer 对象，需要进行释放
         writerIndex(initialCapacity);
     }
 
@@ -101,13 +101,13 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
      * Allocate a new direct {@link ByteBuffer} with the given initialCapacity.
      */
     protected ByteBuffer allocateDirect(int initialCapacity) {
-        return ByteBuffer.allocateDirect(initialCapacity);
+        return ByteBuffer.allocateDirect(initialCapacity); //yangyc 创建 Direct ByteBuffer 对象
     }
 
     /**
      * Free a direct {@link ByteBuffer}
      */
-    protected void freeDirect(ByteBuffer buffer) {
+    protected void freeDirect(ByteBuffer buffer) { //yangyc 释放 buffer 对象
         PlatformDependent.freeDirectBuffer(buffer);
     }
 
@@ -116,16 +116,16 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
             ByteBuffer oldBuffer = this.buffer;
             if (oldBuffer != null) {
                 if (doNotFree) {
-                    doNotFree = false;
+                    doNotFree = false; //yangyc 标记为 false 。因为设置的 ByteBuffer 对象，是 UnpooledDirectByteBuf 自己创建的
                 } else {
-                    freeDirect(oldBuffer);
+                    freeDirect(oldBuffer);  // 释放老的 buffer 对象
                 }
             }
         }
 
-        this.buffer = buffer;
-        tmpNioBuf = null;
-        capacity = buffer.remaining();
+        this.buffer = buffer; //yangyc 设置 buffer
+        tmpNioBuf = null; //yangyc 重置 tmpNioBuf 为 null
+        capacity = buffer.remaining(); //yangyc 设置容量
     }
 
     @Override
@@ -135,29 +135,29 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public int capacity() {
-        return capacity;
+        return capacity; //yangyc capacity
     }
 
     @Override
-    public ByteBuf capacity(int newCapacity) {
-        checkNewCapacity(newCapacity);
+    public ByteBuf capacity(int newCapacity) { //yangyc 调整容量大小, 可能对 buffer 扩容或缩容
+        checkNewCapacity(newCapacity);  //yangyc 校验新的容量，不能超过最大容量
         int oldCapacity = capacity;
         if (newCapacity == oldCapacity) {
             return this;
         }
         int bytesToCopy;
-        if (newCapacity > oldCapacity) {
+        if (newCapacity > oldCapacity) { //yangyc 扩容
             bytesToCopy = oldCapacity;
-        } else {
+        } else {  //yangyc 缩容
             trimIndicesToCapacity(newCapacity);
             bytesToCopy = newCapacity;
         }
         ByteBuffer oldBuffer = buffer;
-        ByteBuffer newBuffer = allocateDirect(newCapacity);
-        oldBuffer.position(0).limit(bytesToCopy);
-        newBuffer.position(0).limit(bytesToCopy);
+        ByteBuffer newBuffer = allocateDirect(newCapacity); //yangyc 创建新的 Direct ByteBuffer 对象
+        oldBuffer.position(0).limit(bytesToCopy); //yangyc 复制数据到新的 buffer 对象
+        newBuffer.position(0).limit(bytesToCopy); //yangyc 复制数据到新的 buffer 对象
         newBuffer.put(oldBuffer).clear();
-        setByteBuffer(newBuffer, true);
+        setByteBuffer(newBuffer, true);  //yangyc 设置新的 buffer 对象，并根据条件释放老的 buffer 对象
         return this;
     }
 
@@ -634,16 +634,16 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
     }
 
     @Override
-    protected void deallocate() {
+    protected void deallocate() { //yangyc 当引用计数为 0 时，调用该方法，进行内存回收
         ByteBuffer buffer = this.buffer;
         if (buffer == null) {
             return;
         }
 
-        this.buffer = null;
+        this.buffer = null;  //yangyc 置空 buffer 属性
 
         if (!doNotFree) {
-            freeDirect(buffer);
+            freeDirect(buffer); //yangyc 释放 buffer 对象
         }
     }
 

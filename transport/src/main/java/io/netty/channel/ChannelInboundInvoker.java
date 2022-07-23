@@ -14,8 +14,8 @@
  * under the License.
  */
 package io.netty.channel;
-
-public interface ChannelInboundInvoker {
+//yangyc 1.通知 Channel 事件
+public interface ChannelInboundInvoker { //yangyc Unsafe 发起请求, TailContext 处理请求。方向：head->tail
 
     /**
      * A {@link Channel} was registered to its {@link EventLoop}.

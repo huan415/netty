@@ -61,52 +61,52 @@ import static io.netty.channel.ChannelHandlerMask.mask;
 abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, ResourceLeakHint {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannelHandlerContext.class);
-    volatile AbstractChannelHandlerContext next;
-    volatile AbstractChannelHandlerContext prev;
+    volatile AbstractChannelHandlerContext next; //yangyc 上一个节点
+    volatile AbstractChannelHandlerContext prev; //yangyc 下一个节点
 
     private static final AtomicIntegerFieldUpdater<AbstractChannelHandlerContext> HANDLER_STATE_UPDATER =
-            AtomicIntegerFieldUpdater.newUpdater(AbstractChannelHandlerContext.class, "handlerState");
+            AtomicIntegerFieldUpdater.newUpdater(AbstractChannelHandlerContext.class, "handlerState"); //yangyc handlerState 原子跟新器
 
     /**
      * {@link ChannelHandler#handlerAdded(ChannelHandlerContext)} is about to be called.
      */
-    private static final int ADD_PENDING = 1;
+    private static final int ADD_PENDING = 1; //yangyc 添加准备中
     /**
      * {@link ChannelHandler#handlerAdded(ChannelHandlerContext)} was called.
      */
-    private static final int ADD_COMPLETE = 2;
+    private static final int ADD_COMPLETE = 2;  //yangyc 已添加
     /**
      * {@link ChannelHandler#handlerRemoved(ChannelHandlerContext)} was called.
      */
-    private static final int REMOVE_COMPLETE = 3;
+    private static final int REMOVE_COMPLETE = 3;  //yangyc 已移除
     /**
      * Neither {@link ChannelHandler#handlerAdded(ChannelHandlerContext)}
      * nor {@link ChannelHandler#handlerRemoved(ChannelHandlerContext)} was called.
      */
-    private static final int INIT = 0;
+    private static final int INIT = 0; //yangyc 初始化
 
-    private final DefaultChannelPipeline pipeline;
-    private final String name;
-    private final boolean ordered;
+    private final DefaultChannelPipeline pipeline; //yangyc 当前 ctx 归属的 pipeline
+    private final String name; //yangyc 名字； 默认不指定，向pipeline添加ctx, pipeline 会默认生成
+    private final boolean ordered; //yangyc 是否使用有序的 EventExecutor
     private final int executionMask;
 
     // Will be set to null if no child executor should be used, otherwise it will be set to the
     // child executor.
-    final EventExecutor executor;
-    private ChannelFuture succeededFuture;
+    final EventExecutor executor;  //yangyc EventExecutor 对象
+    private ChannelFuture succeededFuture; //yangyc 成功的 Promise 对象
 
     // Lazily instantiated tasks used to trigger events to a handler with different executor.
     // There is no need to make this volatile as at worse it will just create a few more instances then needed.
     private Tasks invokeTasks;
 
-    private volatile int handlerState = INIT;
+    private volatile int handlerState = INIT; //yangyc 处理器状态
 
-    AbstractChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutor executor,
+    AbstractChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutor executor, //yangyc 参数1：pipeline 外层容器，承装CTX(Handler)的管道容器，参数2： exector 事件执行器，一般情况下是null, 参数3：name, 参数4：hanlder 业务真正实现的处理器类型
                                   String name, Class<? extends ChannelHandler> handlerClass) {
         this.name = ObjectUtil.checkNotNull(name, "name");
         this.pipeline = pipeline;
         this.executor = executor;
-        this.executionMask = mask(handlerClass);
+        this.executionMask = mask(handlerClass); //yangyc 参数：hanlder 真实业务处理器的 class。 mask()用于计算一个掩码，作用是方便ctx前后传递时查找合适的下一个ctx
         // Its ordered if its driven by the EventLoop or the given Executor is an instanceof OrderedEventExecutor.
         ordered = executor == null || executor instanceof OrderedEventExecutor;
     }
@@ -127,9 +127,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     @Override
-    public EventExecutor executor() {
-        if (executor == null) {
-            return channel().eventLoop();
+    public EventExecutor executor() { //yangyc 循环，向前获得一个 Outbound 节点
+        if (executor == null) { //yangyc 如果未设置子执行器，则使用 Channel 的 EventLoop 作为执行器
+            return channel().eventLoop(); //yangyc 直接认为是使用 Channel 的 EventLoop 作为执行器。
         } else {
             return executor;
         }
@@ -142,7 +142,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
-        invokeChannelRegistered(findContextInbound(MASK_CHANNEL_REGISTERED));
+        invokeChannelRegistered(findContextInbound(MASK_CHANNEL_REGISTERED)); //yangyc findContextInbound() 会找到当前ctx后面的ctx中实现了 MASK_CHANNEL_REGISTERED 方法的ctx,其实是ctx中 hanlder 实现
         return this;
     }
 
@@ -205,15 +205,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     @Override
-    public ChannelHandlerContext fireChannelActive() {
-        invokeChannelActive(findContextInbound(MASK_CHANNEL_ACTIVE));
+    public ChannelHandlerContext fireChannelActive() { //yangyc MASK_CHANNEL_ACTIVE：0b 0000 0000 0000 0000 0000 0000 0000 1000
+        invokeChannelActive(findContextInbound(MASK_CHANNEL_ACTIVE)); //yangyc 调用下一个 Inbound 节点的 Channel active 方法
         return this;
     }
 
     static void invokeChannelActive(final AbstractChannelHandlerContext next) {
-        EventExecutor executor = next.executor();
+        EventExecutor executor = next.executor();  //yangyc 获得下一个 Inbound 节点的执行器
         if (executor.inEventLoop()) {
-            next.invokeChannelActive();
+            next.invokeChannelActive(); //yangyc 调用下一个 Inbound 节点的 Channel active 方法
         } else {
             executor.execute(new Runnable() {
                 @Override
@@ -225,14 +225,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeChannelActive() {
-        if (invokeHandler()) {
+        if (invokeHandler()) { //yangyc 判断是否符合的 ChannelHandler
             try {
-                ((ChannelInboundHandler) handler()).channelActive(this);
+                ((ChannelInboundHandler) handler()).channelActive(this); //yangyc 调用该 ChannelHandler 的 Channel active 方法
             } catch (Throwable t) {
                 invokeExceptionCaught(t);
             }
         } else {
-            fireChannelActive();
+            fireChannelActive();  //yangyc 跳过，传播 Inbound 事件给下一个节点
         }
     }
 
@@ -358,7 +358,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return this;
     }
 
-    static void invokeChannelRead(final AbstractChannelHandlerContext next, Object msg) {
+    static void invokeChannelRead(final AbstractChannelHandlerContext next, Object msg) { //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
         final Object m = next.pipeline.touch(ObjectUtil.checkNotNull(msg, "msg"), next);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
@@ -367,16 +367,16 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             executor.execute(new Runnable() {
                 @Override
                 public void run() {
-                    next.invokeChannelRead(m);
+                    next.invokeChannelRead(m); //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
                 }
             });
         }
     }
 
-    private void invokeChannelRead(Object msg) {
+    private void invokeChannelRead(Object msg) { //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
         if (invokeHandler()) {
             try {
-                ((ChannelInboundHandler) handler()).channelRead(this, msg);
+                ((ChannelInboundHandler) handler()).channelRead(this, msg); //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
             } catch (Throwable t) {
                 invokeExceptionCaught(t);
             }
@@ -404,7 +404,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
     }
 
-    private void invokeChannelReadComplete() {
+    private void invokeChannelReadComplete() { //yangyc invokeReadTask执行 Channel ReadComplete 事件的任务
         if (invokeHandler()) {
             try {
                 ((ChannelInboundHandler) handler()).channelReadComplete(this);
@@ -435,7 +435,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
     }
 
-    private void invokeChannelWritabilityChanged() {
+    private void invokeChannelWritabilityChanged() { //yangyc 执行 Channel WritableStateChanged 事件的任务
         if (invokeHandler()) {
             try {
                 ((ChannelInboundHandler) handler()).channelWritabilityChanged(this);
@@ -463,7 +463,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     @Override
-    public ChannelFuture disconnect() {
+    public ChannelFuture disconnect() { //yangyc disconnect 事件在 pipeline 中，从尾节点向头节点传播
         return disconnect(newPromise());
     }
 
@@ -480,15 +480,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     @Override
     public ChannelFuture bind(final SocketAddress localAddress, final ChannelPromise promise) {
         ObjectUtil.checkNotNull(localAddress, "localAddress");
-        if (isNotValidPromise(promise, false)) {
+        if (isNotValidPromise(promise, false)) { //yangyc 判断是否为合法的 Promise 对象
             // cancelled
             return promise;
         }
 
-        final AbstractChannelHandlerContext next = findContextOutbound(MASK_BIND);
-        EventExecutor executor = next.executor();
+        final AbstractChannelHandlerContext next = findContextOutbound(MASK_BIND); //yangyc 获得下一个 Outbound 节点
+        EventExecutor executor = next.executor();  //yangyc 获得下一个 Outbound 节点的执行器
         if (executor.inEventLoop()) {
-            next.invokeBind(localAddress, promise);
+            next.invokeBind(localAddress, promise);//yangyc 调用下一个 Outbound 节点的 bind 方法
         } else {
             safeExecute(executor, new Runnable() {
                 @Override
@@ -501,14 +501,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
-        if (invokeHandler()) {
+        if (invokeHandler()) { //yangyc 判断是否符合的 ChannelHandler
             try {
-                ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
+                ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);  //yangyc 调用该 ChannelHandler 的 bind 方法
             } catch (Throwable t) {
                 notifyOutboundHandlerException(t, promise);
             }
         } else {
-            bind(localAddress, promise);
+            bind(localAddress, promise); //yangyc 跳过，传播 Outbound 事件给下一个节点
         }
     }
 
@@ -555,13 +555,13 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     @Override
-    public ChannelFuture disconnect(final ChannelPromise promise) {
+    public ChannelFuture disconnect(final ChannelPromise promise) { //yangyc disconnect 事件在 pipeline 中，从尾节点向头节点传播
         if (!channel().metadata().hasDisconnect()) {
             // Translate disconnect to close if the channel has no notion of disconnect-reconnect.
             // So far, UDP/IP is the only transport that has such behavior.
             return close(promise);
         }
-        if (isNotValidPromise(promise, false)) {
+        if (isNotValidPromise(promise, false)) {  //yangyc 判断是否为合法的 Promise 对象
             // cancelled
             return promise;
         }
@@ -569,7 +569,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_DISCONNECT);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
-            next.invokeDisconnect(promise);
+            next.invokeDisconnect(promise); //yangyc 则执行 disconnect 事件在 pipeline 上
         } else {
             safeExecute(executor, new Runnable() {
                 @Override
@@ -680,7 +680,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return this;
     }
 
-    private void invokeRead() {
+    private void invokeRead() { //yangyc 执行 Channel Read 事件的任务
         if (invokeHandler()) {
             try {
                 ((ChannelOutboundHandler) handler()).read(this);
@@ -721,23 +721,23 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     @Override
-    public ChannelHandlerContext flush() {
-        final AbstractChannelHandlerContext next = findContextOutbound(MASK_FLUSH);
+    public ChannelHandlerContext flush() { //yangyc 刷新内存队列，将其中的数据写入到对端
+        final AbstractChannelHandlerContext next = findContextOutbound(MASK_FLUSH);  //yangyc 获得下一个 Outbound 节点
         EventExecutor executor = next.executor();
-        if (executor.inEventLoop()) {
-            next.invokeFlush();
-        } else {
-            Tasks tasks = next.invokeTasks;
+        if (executor.inEventLoop()) {  //yangyc 在 EventLoop 的线程中
+            next.invokeFlush(); //yangyc 执行 flush 事件到下一个节点
+        } else { //yangyc 不在 EventLoop 的线程中
+            Tasks tasks = next.invokeTasks;  //yangyc 创建 flush 任务
             if (tasks == null) {
                 next.invokeTasks = tasks = new Tasks(next);
             }
-            safeExecute(executor, tasks.invokeFlushTask, channel().voidPromise(), null, false);
+            safeExecute(executor, tasks.invokeFlushTask, channel().voidPromise(), null, false);  //yangyc 提交到 EventLoop 的线程中，执行该任务
         }
 
         return this;
     }
 
-    private void invokeFlush() {
+    private void invokeFlush() { //yangyc 执行 flush 事件的任务
         if (invokeHandler()) {
             invokeFlush0();
         } else {
@@ -754,42 +754,42 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     @Override
-    public ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) {
+    public ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) { //yangyc 将 write 和 flush 两个事件在 pipeline 中，从尾节点向头节点传
         write(msg, true, promise);
         return promise;
     }
 
     void invokeWriteAndFlush(Object msg, ChannelPromise promise) {
         if (invokeHandler()) {
-            invokeWrite0(msg, promise);
-            invokeFlush0();
+            invokeWrite0(msg, promise); //yangyc 执行 write 事件到下一个节点
+            invokeFlush0(); //yangyc 执行 flush 事件到下一个节点
         } else {
             writeAndFlush(msg, promise);
         }
     }
 
     private void write(Object msg, boolean flush, ChannelPromise promise) {
-        ObjectUtil.checkNotNull(msg, "msg");
+        ObjectUtil.checkNotNull(msg, "msg"); //yangyc 消息( 数据 )为空，抛出异常
         try {
-            if (isNotValidPromise(promise, true)) {
-                ReferenceCountUtil.release(msg);
+            if (isNotValidPromise(promise, true)) { //yangyc 判断是否为合法的 Promise 对象
+                ReferenceCountUtil.release(msg); //yangyc 释放消息( 数据 )相关的资源
                 // cancelled
                 return;
             }
         } catch (RuntimeException e) {
-            ReferenceCountUtil.release(msg);
+            ReferenceCountUtil.release(msg);  //yangyc 发生异常，释放消息( 数据 )相关的资源
             throw e;
         }
 
         final AbstractChannelHandlerContext next = findContextOutbound(flush ?
-                (MASK_WRITE | MASK_FLUSH) : MASK_WRITE);
-        final Object m = pipeline.touch(msg, next);
+                (MASK_WRITE | MASK_FLUSH) : MASK_WRITE); //yangyc 获得下一个 Outbound 节点
+        final Object m = pipeline.touch(msg, next); //yangyc 记录 Record 记录
         EventExecutor executor = next.executor();
-        if (executor.inEventLoop()) {
+        if (executor.inEventLoop()) {  //yangyc 在 EventLoop 的线程中
             if (flush) {
-                next.invokeWriteAndFlush(m, promise);
+                next.invokeWriteAndFlush(m, promise); //yangyc 执行 writeAndFlush 事件到下一个节点
             } else {
-                next.invokeWrite(m, promise);
+                next.invokeWrite(m, promise); //yangyc 执行 write 事件到下一个节点
             }
         } else {
             final WriteTask task = WriteTask.newInstance(next, m, promise, flush);
@@ -804,11 +804,11 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     @Override
-    public ChannelFuture writeAndFlush(Object msg) {
+    public ChannelFuture writeAndFlush(Object msg) { //yangyc 将 write 和 flush 两个事件在 pipeline 中，从尾节点向头节点传
         return writeAndFlush(msg, newPromise());
     }
 
-    private static void notifyOutboundHandlerException(Throwable cause, ChannelPromise promise) {
+    private static void notifyOutboundHandlerException(Throwable cause, ChannelPromise promise) {  //yangyc 判断是否符合的 ChannelHandler
         // Only log if the given promise is not of type VoidChannelPromise as tryFailure(...) is expected to return
         // false.
         PromiseNotificationUtil.tryFailure(promise, cause, promise instanceof VoidChannelPromise ? null : logger);
@@ -838,10 +838,10 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return new FailedChannelFuture(channel(), executor(), cause);
     }
 
-    private boolean isNotValidPromise(ChannelPromise promise, boolean allowVoidPromise) {
+    private boolean isNotValidPromise(ChannelPromise promise, boolean allowVoidPromise) { //yangyc 判断是否为合法的 Promise 对象
         ObjectUtil.checkNotNull(promise, "promise");
 
-        if (promise.isDone()) {
+        if (promise.isDone()) { //yangyc Promise 已经完成
             // Check if the promise was cancelled and if so signal that the processing of the operation
             // should not be performed.
             //
@@ -852,12 +852,12 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             throw new IllegalArgumentException("promise already done: " + promise);
         }
 
-        if (promise.channel() != channel()) {
+        if (promise.channel() != channel()) { //yangyc Channel 不符合
             throw new IllegalArgumentException(String.format(
                     "promise.channel does not match: %s (expected: %s)", promise.channel(), channel()));
         }
 
-        if (promise.getClass() == DefaultChannelPromise.class) {
+        if (promise.getClass() == DefaultChannelPromise.class) {  //yangyc 禁止 VoidChannelPromise
             return false;
         }
 
@@ -866,27 +866,27 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                     StringUtil.simpleClassName(VoidChannelPromise.class) + " not allowed for this operation");
         }
 
-        if (promise instanceof AbstractChannel.CloseFuture) {
+        if (promise instanceof AbstractChannel.CloseFuture) {  //yangyc 禁止 CloseFuture
             throw new IllegalArgumentException(
                     StringUtil.simpleClassName(AbstractChannel.CloseFuture.class) + " not allowed in a pipeline");
         }
         return false;
     }
 
-    private AbstractChannelHandlerContext findContextInbound(int mask) {
+    private AbstractChannelHandlerContext findContextInbound(int mask) { //yangyc 获得下一个 Inbound 节点的执行器， 参数：一个掩码
         AbstractChannelHandlerContext ctx = this;
         EventExecutor currentExecutor = executor();
         do {
-            ctx = ctx.next;
+            ctx = ctx.next; //yangyc 循环，向后获得一个 Inbound 节点
         } while (skipContext(ctx, currentExecutor, mask, MASK_ONLY_INBOUND));
         return ctx;
     }
 
-    private AbstractChannelHandlerContext findContextOutbound(int mask) {
+    private AbstractChannelHandlerContext findContextOutbound(int mask) { //yangyc 获得下一个 Outbound 节点
         AbstractChannelHandlerContext ctx = this;
         EventExecutor currentExecutor = executor();
         do {
-            ctx = ctx.prev;
+            ctx = ctx.prev; // 循环，向前获得一个 Outbound 节点
         } while (skipContext(ctx, currentExecutor, mask, MASK_ONLY_OUTBOUND));
         return ctx;
     }
@@ -907,11 +907,11 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return channel().voidPromise();
     }
 
-    final void setRemoved() {
+    final void setRemoved() { //yangyc 修改 handlerState=REMOVE_COMPLETE（已移除）
         handlerState = REMOVE_COMPLETE;
     }
 
-    final boolean setAddComplete() {
+    final boolean setAddComplete() { //yangyc 修改 handlerState=ADD_COMPLETE（已添加）。handlerState 状态有两种：REMOVE_COMPLETE、ADD_COMPLETE
         for (;;) {
             int oldState = handlerState;
             if (oldState == REMOVE_COMPLETE) {
@@ -920,34 +920,34 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             // Ensure we never update when the handlerState is REMOVE_COMPLETE already.
             // oldState is usually ADD_PENDING but can also be REMOVE_COMPLETE when an EventExecutor is used that is not
             // exposing ordering guarantees.
-            if (HANDLER_STATE_UPDATER.compareAndSet(this, oldState, ADD_COMPLETE)) {
+            if (HANDLER_STATE_UPDATER.compareAndSet(this, oldState, ADD_COMPLETE)) { //yangyc 原子更新器 CAS 修改 handlerState
                 return true;
             }
         }
     }
 
-    final void setAddPending() {
+    final void setAddPending() { //yangyc 修改 handlerState=ADD_PENDING（添加准备中）
         boolean updated = HANDLER_STATE_UPDATER.compareAndSet(this, INIT, ADD_PENDING);
         assert updated; // This should always be true as it MUST be called before setAddComplete() or setRemoved().
     }
 
-    final void callHandlerAdded() throws Exception {
+    final void callHandlerAdded() throws Exception { //yangyc 回调 ChannelHandler 添加完成( added )事件
         // We must call setAddComplete before calling handlerAdded. Otherwise if the handlerAdded method generates
         // any pipeline events ctx.handler() will miss them because the state will not allow it.
-        if (setAddComplete()) {
-            handler().handlerAdded(this);
+        if (setAddComplete()) { //yangyc 修改 handlerState=ADD_COMPLETE（已添加）
+            handler().handlerAdded(this);  //yangyc 回调 ChannelHandler 添加完成( added )事件
         }
     }
 
-    final void callHandlerRemoved() throws Exception {
+    final void callHandlerRemoved() throws Exception { //yangyc 移除节点
         try {
             // Only call handlerRemoved(...) if we called handlerAdded(...) before.
             if (handlerState == ADD_COMPLETE) {
-                handler().handlerRemoved(this);
+                handler().handlerRemoved(this); //yangyc 回调 ChannelHandler 移除完成( removed )事件
             }
         } finally {
             // Mark the handler as removed in any case.
-            setRemoved();
+            setRemoved(); //yangyc 修改 handlerState=REMOVE_COMPLETE（已移除）
         }
     }
 
@@ -980,22 +980,22 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return channel().hasAttr(key);
     }
 
-    private static boolean safeExecute(EventExecutor executor, Runnable runnable,
+    private static boolean safeExecute(EventExecutor executor, Runnable runnable, //yangyc 提交到 EventLoop 的线程中执行
             ChannelPromise promise, Object msg, boolean lazy) {
         try {
             if (lazy && executor instanceof AbstractEventExecutor) {
                 ((AbstractEventExecutor) executor).lazyExecute(runnable);
             } else {
-                executor.execute(runnable);
+                executor.execute(runnable); //yangyc 提交 EventLoop 的线程中，进行执行任务
             }
             return true;
         } catch (Throwable cause) {
             try {
                 if (msg != null) {
-                    ReferenceCountUtil.release(msg);
+                    ReferenceCountUtil.release(msg); //yangyc 释放 msg 相关的资源
                 }
             } finally {
-                promise.setFailure(cause);
+                promise.setFailure(cause);  //yangyc 发生异常，回调通知 promise 相关的异常
             }
             return false;
         }
@@ -1019,40 +1019,40 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             }
         });
 
-        static WriteTask newInstance(AbstractChannelHandlerContext ctx,
+        static WriteTask newInstance(AbstractChannelHandlerContext ctx, //yangyc 创建 WriteTask 对象
                 Object msg, ChannelPromise promise, boolean flush) {
-            WriteTask task = RECYCLER.get();
-            init(task, ctx, msg, promise, flush);
+            WriteTask task = RECYCLER.get(); //yangyc 从 Recycler 的对象池中获得 WriteTask 对象
+            init(task, ctx, msg, promise, flush);  //yangyc 初始化 WriteTask 对象的属性
             return task;
         }
 
-        private static final boolean ESTIMATE_TASK_SIZE_ON_SUBMIT =
+        private static final boolean ESTIMATE_TASK_SIZE_ON_SUBMIT = //yangyc 提交任务时，是否计算 WriteTask 对象的自身占用内存大小
                 SystemPropertyUtil.getBoolean("io.netty.transport.estimateSizeOnSubmit", true);
 
         // Assuming compressed oops, 12 bytes obj header, 4 ref fields and one int field
-        private static final int WRITE_TASK_OVERHEAD =
+        private static final int WRITE_TASK_OVERHEAD = //yangyc 每个 WriteTask 对象自身占用内存的大小
                 SystemPropertyUtil.getInt("io.netty.transport.writeTaskSizeOverhead", 32);
 
-        private final Handle<WriteTask> handle;
-        private AbstractChannelHandlerContext ctx;
-        private Object msg;
-        private ChannelPromise promise;
-        private int size; // sign bit controls flush
+        private final Handle<WriteTask> handle; //yangyc Recycler 处理器 --- Netty 用来实现对象池的工具类
+        private AbstractChannelHandlerContext ctx; //yangyc pipeline 中的节点
+        private Object msg; //yangyc 消息( 数据 )
+        private ChannelPromise promise; //yangyc Promise 对象
+        private int size; // sign bit controls flush yangyc 对象大小
 
         @SuppressWarnings("unchecked")
         private WriteTask(Handle<? extends WriteTask> handle) {
             this.handle = (Handle<WriteTask>) handle;
         }
 
-        protected static void init(WriteTask task, AbstractChannelHandlerContext ctx,
+        protected static void init(WriteTask task, AbstractChannelHandlerContext ctx, //yangyc 初始化 WriteTask 对象
                                    Object msg, ChannelPromise promise, boolean flush) {
             task.ctx = ctx;
             task.msg = msg;
             task.promise = promise;
 
-            if (ESTIMATE_TASK_SIZE_ON_SUBMIT) {
+            if (ESTIMATE_TASK_SIZE_ON_SUBMIT) {  //yangyc 计算 AbstractWriteTask 对象大小
                 task.size = ctx.pipeline.estimatorHandle().size(msg) + WRITE_TASK_OVERHEAD;
-                ctx.pipeline.incrementPendingOutboundBytes(task.size);
+                ctx.pipeline.incrementPendingOutboundBytes(task.size);  //yangyc 增加 ChannelOutboundBuffer 的 totalPendingSize 属性
             } else {
                 task.size = 0;
             }
@@ -1064,14 +1064,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         @Override
         public void run() {
             try {
-                decrementPendingOutboundBytes();
+                decrementPendingOutboundBytes();  //yangyc 减少 ChannelOutboundBuffer 的 totalPendingSize 属性
                 if (size >= 0) {
-                    ctx.invokeWrite(msg, promise);
+                    ctx.invokeWrite(msg, promise);  //yangyc 执行 write 事件到下一个节点
                 } else {
-                    ctx.invokeWriteAndFlush(msg, promise);
+                    ctx.invokeWriteAndFlush(msg, promise); //yangyc 执行 WriteAndFlush 事件到下一个节点
                 }
             } finally {
-                recycle();
+                recycle();  //yangyc 回收对象
             }
         }
 
@@ -1083,7 +1083,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             }
         }
 
-        private void decrementPendingOutboundBytes() {
+        private void decrementPendingOutboundBytes() { //yangyc 减少 ChannelOutboundBuffer 的 totalPendingSize 属性
             if (ESTIMATE_TASK_SIZE_ON_SUBMIT) {
                 ctx.pipeline.decrementPendingOutboundBytes(size & Integer.MAX_VALUE);
             }
@@ -1100,25 +1100,25 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     private static final class Tasks {
         private final AbstractChannelHandlerContext next;
-        private final Runnable invokeChannelReadCompleteTask = new Runnable() {
+        private final Runnable invokeChannelReadCompleteTask = new Runnable() { //yangyc invokeReadTask执行 Channel ReadComplete 事件的任务
             @Override
             public void run() {
                 next.invokeChannelReadComplete();
             }
         };
-        private final Runnable invokeReadTask = new Runnable() {
+        private final Runnable invokeReadTask = new Runnable() { //yangyc 执行 Channel Read 事件的任务
             @Override
             public void run() {
                 next.invokeRead();
             }
         };
-        private final Runnable invokeChannelWritableStateChangedTask = new Runnable() {
+        private final Runnable invokeChannelWritableStateChangedTask = new Runnable() { //yangyc 执行 Channel WritableStateChanged 事件的任务
             @Override
             public void run() {
                 next.invokeChannelWritabilityChanged();
             }
         };
-        private final Runnable invokeFlushTask = new Runnable() {
+        private final Runnable invokeFlushTask = new Runnable() { //yangyc 执行 flush 事件的任务
             @Override
             public void run() {
                 next.invokeFlush();

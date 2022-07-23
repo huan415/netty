@@ -15,7 +15,7 @@
  */
 package io.netty.buffer;
 
-public interface ByteBufAllocatorMetricProvider {
+public interface ByteBufAllocatorMetricProvider { //yangyc ByteBufAllocator Metric 提供者接口，用于监控 ByteBuf 的 Heap 和 Direct 占用内存的情况
 
     /**
      * Returns a {@link ByteBufAllocatorMetric} for a {@link ByteBufAllocator}.

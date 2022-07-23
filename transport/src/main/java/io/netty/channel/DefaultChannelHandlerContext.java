@@ -21,9 +21,9 @@ final class DefaultChannelHandlerContext extends AbstractChannelHandlerContext {
 
     private final ChannelHandler handler;
 
-    DefaultChannelHandlerContext(
+    DefaultChannelHandlerContext( //yangyc 参数1：pipeline 外层容器，承装CTX(Handler)的管道容器，参数2： exector 事件执行器，一般情况下是null, 参数3：name, 参数4：hanlder 业务真正实现的处理器
             DefaultChannelPipeline pipeline, EventExecutor executor, String name, ChannelHandler handler) {
-        super(pipeline, executor, name, handler.getClass());
+        super(pipeline, executor, name, handler.getClass()); //yangyc 参数1：pipeline 外层容器，承装CTX(Handler)的管道容器，参数2： exector 事件执行器，一般情况下是null, 参数3：name, 参数4：hanlder 业务真正实现的处理器类型
         this.handler = handler;
     }
 

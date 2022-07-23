@@ -49,6 +49,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>When not used in a {@link ServerBootstrap} context, the {@link #bind()} methods are useful for connectionless
  * transports such as datagram (UDP).</p>
+ * 两个泛型:
+ * B ：继承 AbstractBootstrap 类，用于表示自身的类型。
+ * C ：继承 Channel 类，表示表示创建的 Channel 类型。
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
     @SuppressWarnings("unchecked")
@@ -56,16 +59,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     @SuppressWarnings("unchecked")
     private static final Map.Entry<AttributeKey<?>, Object>[] EMPTY_ATTRIBUTE_ARRAY = new Map.Entry[0];
 
-    volatile EventLoopGroup group;
+    volatile EventLoopGroup group;//yangyc EventLoopGroup 对象
     @SuppressWarnings("deprecation")
-    private volatile ChannelFactory<? extends C> channelFactory;
-    private volatile SocketAddress localAddress;
+    private volatile ChannelFactory<? extends C> channelFactory;//yangyc Channel工厂类，用于创建channel
+    private volatile SocketAddress localAddress;//yangyc 本地地址
 
     // The order in which ChannelOptions are applied is important they may depend on each other for validation
     // purposes.
-    private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
-    private final Map<AttributeKey<?>, Object> attrs = new ConcurrentHashMap<AttributeKey<?>, Object>();
-    private volatile ChannelHandler handler;
+    private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();//yangyc 可选项集合
+    private final Map<AttributeKey<?>, Object> attrs = new ConcurrentHashMap<AttributeKey<?>, Object>();//yangyc 属性集合
+    private volatile ChannelHandler handler;//yangyc handle处理器
 
     AbstractBootstrap() {
         // Disallow extending from a different package.
@@ -76,7 +79,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         channelFactory = bootstrap.channelFactory;
         handler = bootstrap.handler;
         localAddress = bootstrap.localAddress;
-        synchronized (bootstrap.options) {
+        synchronized (bootstrap.options) { //yangyc 加 synchronized 原因：其他线程可能调用 option(hannelOption<T> option, T value)
             options.putAll(bootstrap.options);
         }
         attrs.putAll(bootstrap.attrs);
@@ -86,7 +89,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * The {@link EventLoopGroup} which is used to handle all the events for the to-be-created
      * {@link Channel}
      */
-    public B group(EventLoopGroup group) {
+    public B group(EventLoopGroup group) { //yangyc 设置EventLoopGroup，并返回自己----链式调用
         ObjectUtil.checkNotNull(group, "group");
         if (this.group != null) {
             throw new IllegalStateException("group set already");
@@ -96,7 +99,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     @SuppressWarnings("unchecked")
-    private B self() {
+    private B self() { //yangyc return自己----用于链式调用
         return (B) this;
     }
 
@@ -105,9 +108,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * You either use this or {@link #channelFactory(io.netty.channel.ChannelFactory)} if your
      * {@link Channel} implementation has no no-args constructor.
      */
-    public B channel(Class<? extends C> channelClass) {
-        return channelFactory(new ReflectiveChannelFactory<C>(
-                ObjectUtil.checkNotNull(channelClass, "channelClass")
+    public B channel(Class<? extends C> channelClass) {  //yangyc 设置要被实例化的 Channel 的类
+        return channelFactory(new ReflectiveChannelFactory<C>( //yangyc channel的反射工厂类, class -> constructor -> newInstance
+                ObjectUtil.checkNotNull(channelClass, "channelClass") //yangyc 传个 class，以便于拿到channel类构造方法并缓存，以后就可以基于这个构造方法newChannel
         ));
     }
 
@@ -140,7 +143,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * The {@link SocketAddress} which is used to bind the local "end" to.
      */
-    public B localAddress(SocketAddress localAddress) {
+    public B localAddress(SocketAddress localAddress) { //yangyc 重载----设置创建 Channel 的本地地址
         this.localAddress = localAddress;
         return self();
     }
@@ -148,21 +151,21 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * @see #localAddress(SocketAddress)
      */
-    public B localAddress(int inetPort) {
+    public B localAddress(int inetPort) { //yangyc 重载----设置创建 Channel 的本地地址
         return localAddress(new InetSocketAddress(inetPort));
     }
 
     /**
      * @see #localAddress(SocketAddress)
      */
-    public B localAddress(String inetHost, int inetPort) {
+    public B localAddress(String inetHost, int inetPort) { //yangyc 重载----设置创建 Channel 的本地地址
         return localAddress(SocketUtils.socketAddress(inetHost, inetPort));
     }
 
     /**
      * @see #localAddress(SocketAddress)
      */
-    public B localAddress(InetAddress inetHost, int inetPort) {
+    public B localAddress(InetAddress inetHost, int inetPort) { //yangyc 重载----设置创建 Channel 的本地地址
         return localAddress(new InetSocketAddress(inetHost, inetPort));
     }
 
@@ -170,13 +173,13 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Allow to specify a {@link ChannelOption} which is used for the {@link Channel} instances once they got
      * created. Use a value of {@code null} to remove a previous set {@link ChannelOption}.
      */
-    public <T> B option(ChannelOption<T> option, T value) {
+    public <T> B option(ChannelOption<T> option, T value) { //yangyc 设置创建 Channel 的可选项
         ObjectUtil.checkNotNull(option, "option");
         synchronized (options) {
             if (value == null) {
-                options.remove(option);
+                options.remove(option); //yangyc 空，意味着移除
             } else {
-                options.put(option, value);
+                options.put(option, value); //yangyc 非空，进行修改
             }
         }
         return self();
@@ -186,12 +189,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Allow to specify an initial attribute of the newly created {@link Channel}.  If the {@code value} is
      * {@code null}, the attribute of the specified {@code key} is removed.
      */
-    public <T> B attr(AttributeKey<T> key, T value) {
+    public <T> B attr(AttributeKey<T> key, T value) { //yangyc 设置创建 Channel 的属性
         ObjectUtil.checkNotNull(key, "key");
         if (value == null) {
-            attrs.remove(key);
+            attrs.remove(key);  //yangyc 空，意味着移除
         } else {
-            attrs.put(key, value);
+            attrs.put(key, value); //yangyc 非空，进行修改
         }
         return self();
     }
@@ -200,7 +203,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Validate all the parameters. Sub-classes may override this, but should
      * call the super method in that case.
      */
-    public B validate() {
+    public B validate() { //yangyc 校验配置是否正确----#bind(...) 中，绑定本地地址时，会调用该方法进行校验
         if (group == null) {
             throw new IllegalStateException("group not set");
         }
@@ -217,7 +220,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      */
     @Override
     @SuppressWarnings("CloneDoesntDeclareCloneNotSupportedException")
-    public abstract B clone();
+    public abstract B clone(); //yangyc 克隆一个 AbstractBootstrap 对象
 
     /**
      * Create a new {@link Channel} and register it with an {@link EventLoop}.
@@ -230,25 +233,26 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * Create a new {@link Channel} and bind it.
      */
-    public ChannelFuture bind() {
-        validate();
+    public ChannelFuture bind() { //yangyc-main 绑定本地地址 + 包括端口
+        validate(); //yangyc  校验服务启动需要的必要参数
         SocketAddress localAddress = this.localAddress;
         if (localAddress == null) {
             throw new IllegalStateException("localAddress not set");
         }
-        return doBind(localAddress);
+        return doBind(localAddress); //yangyc-main 绑定本地地址 + 包括端口
     }
 
     /**
      * Create a new {@link Channel} and bind it.
      */
-    public ChannelFuture bind(int inetPort) {
+    public ChannelFuture bind(int inetPort) { //yangyc 参数: 端口号
         return bind(new InetSocketAddress(inetPort));
     }
 
     /**
      * Create a new {@link Channel} and bind it.
      */
+    //yangyc 启动服务器绑定端口(异步)
     public ChannelFuture bind(String inetHost, int inetPort) {
         return bind(SocketUtils.socketAddress(inetHost, inetPort));
     }
@@ -264,28 +268,28 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind(SocketAddress localAddress) {
-        validate();
+        validate(); //yangyc 校验配置是否正确
         return doBind(ObjectUtil.checkNotNull(localAddress, "localAddress"));
     }
 
-    private ChannelFuture doBind(final SocketAddress localAddress) {
-        final ChannelFuture regFuture = initAndRegister();
-        final Channel channel = regFuture.channel();
-        if (regFuture.cause() != null) {
+    private ChannelFuture doBind(final SocketAddress localAddress) { //yangyc-main 绑定网络监听端口
+        final ChannelFuture regFuture = initAndRegister(); //yangyc-main 初始化并注册一个 Channel 对象，因为注册是异步的过程，所以返回一个 ChannelFuture 对象， regFuture 是注册相关的promise对象，他关联的异步任务是 register0()， register0()被加在channel相关的eventloop工作队列
+        final Channel channel = regFuture.channel(); //yangyc 拿到 NioServerSocketChannel 对象
+        if (regFuture.cause() != null) { //yangyc 若发生异常，直接进行返回
             return regFuture;
         }
 
-        if (regFuture.isDone()) {
+        if (regFuture.isDone()) { //yangyc 因为注册（register0()在工作队列中）是异步的过程，有可能已完成，有可能未完成------未已完成，如果register0()执行完done是true
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
-            doBind0(regFuture, channel, localAddress, promise);
+            doBind0(regFuture, channel, localAddress, promise); //yangyc-main 绑定 Channel 的端口，并注册 Channel 到 SelectionKey 中
             return promise;
-        } else {
+        } else { //yangyc 因为注册是异步的过程，有可能已完成，有可能未完成------register0未完成
             // Registration future is almost always fulfilled already, but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
-            regFuture.addListener(new ChannelFutureListener() {
+            regFuture.addListener(new ChannelFutureListener() { //yangyc 给register0相关的promise对象添加监听器，在register0注册完成后，进行回调执行 #doBind0(...)
                 @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
+                public void operationComplete(ChannelFuture future) throws Exception { //yangyc 这个方法不是主线程执行的，主线程只是添加监听器，是回调线程eventloop调用的
                     Throwable cause = future.cause();
                     if (cause != null) {
                         // Registration on the EventLoop failed so fail the ChannelPromise directly to not cause an
@@ -296,36 +300,38 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
 
-                        doBind0(regFuture, channel, localAddress, promise);
+                        doBind0(regFuture, channel, localAddress, promise); //yangyc 在监听器中绑定端口
                     }
                 }
             });
-            return promise;
+            return promise; //yangyc 主线程返回一个与bind操作相关的promise对象
         }
     }
 
-    final ChannelFuture initAndRegister() {
+    final ChannelFuture initAndRegister() { //yangyc-main 初始化并注册一个 Channel 对象，并返回一个 ChannelFuture 对象
         Channel channel = null;
         try {
-            channel = channelFactory.newChannel();
-            init(channel);
+            //yangyc NioServerSocketChannel 构造方法：1.获得JDK层面的ServerSocketChannel，2.保存感兴趣事件-Accept, 3.设置非阻塞，4.创建unsafe对象（NioMessageUnsafe）,4.创建pipeline
+            channel = channelFactory.newChannel(); //yangyc-main 创建 Channel 对象 --- [ServerBoostrap -> ReflectiveChannelFactory -> NioServerSocketChannel()] --- channelFactory的创建过程在channel(NioServerSocketChannel.class)
+            //yangyc 给当前服务端 Channel 的pipeline添加一个ChannelInitializer（hanlder压缩包）
+            init(channel); //yangyc-main 初始化 Channel 配置 --- 具体实现在子类 ServerBootStrap 和 Boostrap 里
         } catch (Throwable t) {
             if (channel != null) {
                 // channel can be null if newChannel crashed (eg SocketException("too many open files"))
-                channel.unsafe().closeForcibly();
+                channel.unsafe().closeForcibly(); //yangyc 如果已创建 Channel 对象，则强制关闭 Channel
                 // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
                 return new DefaultChannelPromise(channel, GlobalEventExecutor.INSTANCE).setFailure(t);
             }
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
-            return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
+            return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t); //yangyc 创建 Channel 对象失败, 则创建一个 FailedChannel 对象，并设置到 DefaultChannelPromise 中且可以返回
         }
-
-        ChannelFuture regFuture = config().group().register(channel);
-        if (regFuture.cause() != null) {
+        //yangyc config()=>ServerBootstrapConfig(ServerBootstrap);   group()=>boos组（NioEventLoopGroup）;    register(channel)=>MultithreadEventLoopGroup#register()
+        ChannelFuture regFuture = config().group().register(channel);  //yangyc-main 从 boosGroup 里拿一个线程来处理 Channel，并将其注册到自己的 Selector, [MultithreadEventLoopGroup#register()]
+        if (regFuture.cause() != null) { //yangyc regFuture 是注册相关的promise对象
             if (channel.isRegistered()) {
                 channel.close();
             } else {
-                channel.unsafe().closeForcibly();
+                channel.unsafe().closeForcibly(); //yangyc 强制关闭 Channel
             }
         }
 
@@ -345,16 +351,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
-            final SocketAddress localAddress, final ChannelPromise promise) {
+            final SocketAddress localAddress, final ChannelPromise promise) { //yangyc 执行 Channel 的端口绑定逻辑
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
         channel.eventLoop().execute(new Runnable() {
             @Override
-            public void run() {
-                if (regFuture.isSuccess()) {
-                    channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-                } else {
+            public void run() { //yangyc-main 提交异步任务到eventloop工作队列: 【异步任务3--添加】--- xx#xx()时执行
+                if (regFuture.isSuccess()) { //yangyc 注册成功，绑定端口
+                    channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE); //yangyc-main 异步任务3执行 绑定网络端口
+                } else { //yangyc 注册失败，回调通知 promise 异常
                     promise.setFailure(regFuture.cause());
                 }
             }
@@ -364,7 +370,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * the {@link ChannelHandler} to use for serving the requests.
      */
-    public B handler(ChannelHandler handler) {
+    public B handler(ChannelHandler handler) { //yangyc 设置 Channel 的处理器
         this.handler = ObjectUtil.checkNotNull(handler, "handler");
         return self();
     }
@@ -383,7 +389,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Returns the {@link AbstractBootstrapConfig} object that can be used to obtain the current config
      * of the bootstrap.
      */
-    public abstract AbstractBootstrapConfig<B, C> config();
+    public abstract AbstractBootstrapConfig<B, C> config(); //yangyc 返回当前 AbstractBootstrap 的配置对象
 
     final Map.Entry<ChannelOption<?>, Object>[] newOptionsArray() {
         return newOptionsArray(options);
@@ -411,7 +417,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return attrs;
     }
 
-    final SocketAddress localAddress() {
+    final SocketAddress localAddress() { //yangyc 重载----设置创建 Channel 的本地地址
         return localAddress;
     }
 
@@ -420,7 +426,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return channelFactory;
     }
 
-    final ChannelHandler handler() {
+    final ChannelHandler handler() { //yangyc 返回 Channel 的处理器
         return handler;
     }
 
@@ -449,7 +455,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
-    static void setChannelOptions(
+    static void setChannelOptions( //yangyc 设置传入的 Channel 的多个可选项
             Channel channel, Map.Entry<ChannelOption<?>, Object>[] options, InternalLogger logger) {
         for (Map.Entry<ChannelOption<?>, Object> e: options) {
             setChannelOption(channel, e.getKey(), e.getValue(), logger);
@@ -457,7 +463,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     @SuppressWarnings("unchecked")
-    private static void setChannelOption(
+    private static void setChannelOption( //yangyc 设置传入的 Channel 的一个可选项
             Channel channel, ChannelOption<?> option, Object value, InternalLogger logger) {
         try {
             if (!channel.config().setOption((ChannelOption<Object>) option, value)) {

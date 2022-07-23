@@ -33,7 +33,7 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 
-final class AdvancedLeakAwareByteBuf extends SimpleLeakAwareByteBuf {
+final class AdvancedLeakAwareByteBuf extends SimpleLeakAwareByteBuf { //yangyc ADVANCED 和 PARANOID 级别的 LeakAware ByteBuf 实现类
 
     // If set to true we will only record stacktraces for touch(...), release(...) and retain(...) calls.
     private static final String PROP_ACQUIRE_AND_RELEASE_ONLY = "io.netty.leakDetection.acquireAndReleaseOnly";
@@ -961,7 +961,7 @@ final class AdvancedLeakAwareByteBuf extends SimpleLeakAwareByteBuf {
     }
 
     @Override
-    protected AdvancedLeakAwareByteBuf newLeakAwareByteBuf(
+    protected AdvancedLeakAwareByteBuf newLeakAwareByteBuf( //yangyc 覆写父类方法，将原先装饰成 SimpleLeakAwareByteBuf 改成 AdvancedLeakAwareByteBuf 对象
             ByteBuf buf, ByteBuf trackedByteBuf, ResourceLeakTracker<ByteBuf> leakTracker) {
         return new AdvancedLeakAwareByteBuf(buf, trackedByteBuf, leakTracker);
     }

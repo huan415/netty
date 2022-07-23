@@ -31,42 +31,42 @@ import static io.netty.util.concurrent.AbstractEventExecutor.*;
  */
 public abstract class AbstractEventExecutorGroup implements EventExecutorGroup {
     @Override
-    public Future<?> submit(Runnable task) {
+    public Future<?> submit(Runnable task) { //yangyc 提交一个普通任务到 EventExecutor 中
         return next().submit(task);
     }
 
     @Override
-    public <T> Future<T> submit(Runnable task, T result) {
+    public <T> Future<T> submit(Runnable task, T result) { //yangyc 提交一个普通任务到 EventExecutor 中
         return next().submit(task, result);
     }
 
     @Override
-    public <T> Future<T> submit(Callable<T> task) {
+    public <T> Future<T> submit(Callable<T> task) { //yangyc 提交一个普通任务到 EventExecutor 中
         return next().submit(task);
     }
 
     @Override
-    public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
+    public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) { //yangyc 提交一个定时任务到 EventExecutor 中
         return next().schedule(command, delay, unit);
     }
 
     @Override
-    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
+    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) { //yangyc 提交一个定时任务到 EventExecutor 中
         return next().schedule(callable, delay, unit);
     }
 
     @Override
-    public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit) {
+    public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit) { //yangyc 提交一个定时任务到 EventExecutor 中
         return next().scheduleAtFixedRate(command, initialDelay, period, unit);
     }
 
     @Override
-    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) {
+    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) { //yangyc 提交一个定时任务到 EventExecutor 中
         return next().scheduleWithFixedDelay(command, initialDelay, delay, unit);
     }
 
     @Override
-    public Future<?> shutdownGracefully() {
+    public Future<?> shutdownGracefully() { //yangyc 关闭 EventExecutorGroup
         return shutdownGracefully(DEFAULT_SHUTDOWN_QUIET_PERIOD, DEFAULT_SHUTDOWN_TIMEOUT, TimeUnit.SECONDS);
     }
 
@@ -89,29 +89,29 @@ public abstract class AbstractEventExecutorGroup implements EventExecutorGroup {
 
     @Override
     public <T> List<java.util.concurrent.Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
-            throws InterruptedException {
+            throws InterruptedException { //yangyc 在 EventExecutor 中执行多个普通任务
         return next().invokeAll(tasks);
     }
 
     @Override
-    public <T> List<java.util.concurrent.Future<T>> invokeAll(
+    public <T> List<java.util.concurrent.Future<T>> invokeAll( //yangyc 在 EventExecutor 中执行多个普通任务
             Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) throws InterruptedException {
         return next().invokeAll(tasks, timeout, unit);
     }
 
     @Override
-    public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException {
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException { //yangyc 在 EventExecutor 中执行多个普通任务，有一个执行完成即可
         return next().invokeAny(tasks);
     }
 
     @Override
     public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
-            throws InterruptedException, ExecutionException, TimeoutException {
+            throws InterruptedException, ExecutionException, TimeoutException { //yangyc 在 EventExecutor 中执行多个普通任务，有一个执行完成即可
         return next().invokeAny(tasks, timeout, unit);
     }
 
     @Override
-    public void execute(Runnable command) {
+    public void execute(Runnable command) { //yangyc 在 EventExecutor 中执行一个普通任务
         next().execute(command);
     }
 }

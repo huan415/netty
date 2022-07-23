@@ -29,23 +29,23 @@ import java.util.concurrent.TimeUnit;
 /**
  * Abstract base class for {@link EventExecutor}s that want to support scheduling.
  */
-public abstract class AbstractScheduledEventExecutor extends AbstractEventExecutor {
+public abstract class AbstractScheduledEventExecutor extends AbstractEventExecutor { //yangyc 支持定时任务的 EventExecutor 的抽象类, 继承抽象的事件执行器
     private static final Comparator<ScheduledFutureTask<?>> SCHEDULED_FUTURE_TASK_COMPARATOR =
             new Comparator<ScheduledFutureTask<?>>() {
                 @Override
                 public int compare(ScheduledFutureTask<?> o1, ScheduledFutureTask<?> o2) {
                     return o1.compareTo(o2);
                 }
-            };
+            }; //yangyc 定时任务排序器 --- 队列首个任务，就是第一个需要执行的定时任务
 
    static final Runnable WAKEUP_TASK = new Runnable() {
        @Override
-       public void run() { } // Do nothing
+       public void run() { } // Do nothing yangyc 这是一个空的 Runnable 实现类。仅仅用于唤醒基于 taskQueue 阻塞拉取的 EventLoop 实现类
     };
 
-    PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue;
+    PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue; //yangyc 定时任务队列 --- 队列首个任务，就是第一个需要执行的定时任务
 
-    long nextTaskId;
+    long nextTaskId; //yangyc 任务序号生, 递增
 
     protected AbstractScheduledEventExecutor() {
     }
@@ -55,7 +55,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     }
 
     protected static long nanoTime() {
-        return ScheduledFutureTask.nanoTime();
+        return ScheduledFutureTask.nanoTime(); //yangyc 当前时间
     }
 
     /**
@@ -76,8 +76,8 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         return ScheduledFutureTask.initialNanoTime();
     }
 
-    PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue() {
-        if (scheduledTaskQueue == null) {
+    PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue() { //yangyc 获得定时任务队列
+        if (scheduledTaskQueue == null) { //yangyc 若未初始化，则进行创建
             scheduledTaskQueue = new DefaultPriorityQueue<ScheduledFutureTask<?>>(
                     SCHEDULED_FUTURE_TASK_COMPARATOR,
                     // Use same initial capacity as java.util.PriorityQueue
@@ -95,18 +95,18 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
      *
      * This method MUST be called only when {@link #inEventLoop()} is {@code true}.
      */
-    protected void cancelScheduledTasks() {
+    protected void cancelScheduledTasks() { //yangyc 取消定时任务队列的所有任务
         assert inEventLoop();
         PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue = this.scheduledTaskQueue;
         if (isNullOrEmpty(scheduledTaskQueue)) {
-            return;
+            return; //yangyc 若队列为空，直接返回
         }
 
         final ScheduledFutureTask<?>[] scheduledTasks =
                 scheduledTaskQueue.toArray(new ScheduledFutureTask<?>[0]);
 
         for (ScheduledFutureTask<?> task: scheduledTasks) {
-            task.cancelWithoutRemove(false);
+            task.cancelWithoutRemove(false); //yangyc 循环，取消所有任务
         }
 
         scheduledTaskQueue.clearIgnoringIndexes();
@@ -115,22 +115,22 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     /**
      * @see #pollScheduledTask(long)
      */
-    protected final Runnable pollScheduledTask() {
-        return pollScheduledTask(nanoTime());
+    protected final Runnable pollScheduledTask() { //yangyc 获得指定时间内，定时任务队列首个可执行的任务，并且从队列中移除
+        return pollScheduledTask(nanoTime()); //yangyc nanoTime()当前时间
     }
 
     /**
      * Return the {@link Runnable} which is ready to be executed with the given {@code nanoTime}.
      * You should use {@link #nanoTime()} to retrieve the correct {@code nanoTime}.
      */
-    protected final Runnable pollScheduledTask(long nanoTime) {
+    protected final Runnable pollScheduledTask(long nanoTime) { //yangyc 获得指定时间内，定时任务队列首个可执行的任务，并且从队列中移除
         assert inEventLoop();
 
-        ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
-        if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) {
+        ScheduledFutureTask<?> scheduledTask = peekScheduledTask(); //yangyc 获得队列首个定时任务, 因为队列首个任务，就是第一个需要执行的定时任务
+        if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) { //yangyc 若获取不到或者不在指定时间内，直接返回
             return null;
         }
-        scheduledTaskQueue.remove();
+        scheduledTaskQueue.remove(); //yangyc 移除任务
         scheduledTask.setConsumed();
         return scheduledTask;
     }
@@ -138,9 +138,9 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     /**
      * Return the nanoseconds until the next scheduled task is ready to be run or {@code -1} if no task is scheduled.
      */
-    protected final long nextScheduledTaskNano() {
-        ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
-        return scheduledTask != null ? scheduledTask.delayNanos() : -1;
+    protected final long nextScheduledTaskNano() { //yangyc 定时任务队列，距离当前时间，还要多久可执行
+        ScheduledFutureTask<?> scheduledTask = peekScheduledTask(); //yangyc 获得队列首个定时任务, 因为队列首个任务，就是第一个需要执行的定时任务
+        return scheduledTask != null ? scheduledTask.delayNanos() : -1; //yangyc 距离当前时间，还要多久可执行。若为负数，直接返回 0
     }
 
     /**
@@ -149,10 +149,10 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
      */
     protected final long nextScheduledTaskDeadlineNanos() {
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
-        return scheduledTask != null ? scheduledTask.deadlineNanos() : -1;
+        return scheduledTask != null ? scheduledTask.deadlineNanos() : -1; //yangyc 周期任务队列内有任务，返回对头任务的截止时间，否则返回-1
     }
 
-    final ScheduledFutureTask<?> peekScheduledTask() {
+    final ScheduledFutureTask<?> peekScheduledTask() { //yangyc 获得队列首个定时任务, 因为队列首个任务，就是第一个需要执行的定时任务
         Queue<ScheduledFutureTask<?>> scheduledTaskQueue = this.scheduledTaskQueue;
         return scheduledTaskQueue != null ? scheduledTaskQueue.peek() : null;
     }
@@ -160,13 +160,13 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     /**
      * Returns {@code true} if a scheduled task is ready for processing.
      */
-    protected final boolean hasScheduledTasks() {
-        ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
-        return scheduledTask != null && scheduledTask.deadlineNanos() <= nanoTime();
+    protected final boolean hasScheduledTasks() { //yangyc 判断是否有可执行的定时任务
+        ScheduledFutureTask<?> scheduledTask = peekScheduledTask(); //yangyc 获得队列首个定时任务, 因为队列首个任务，就是第一个需要执行的定时任务
+        return scheduledTask != null && scheduledTask.deadlineNanos() <= nanoTime(); //yangyc 判断该任务是否到达可执行的时间
     }
 
     @Override
-    public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
+    public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {  //yangyc 提交定时任务 --- Runnable
         ObjectUtil.checkNotNull(command, "command");
         ObjectUtil.checkNotNull(unit, "unit");
         if (delay < 0) {
@@ -181,7 +181,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     }
 
     @Override
-    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
+    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {  //yangyc 提交定时任务 --- callable
         ObjectUtil.checkNotNull(callable, "callable");
         ObjectUtil.checkNotNull(unit, "unit");
         if (delay < 0) {
@@ -251,19 +251,19 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         scheduledTaskQueue().add(task.setId(++nextTaskId));
     }
 
-    private <V> ScheduledFuture<V> schedule(final ScheduledFutureTask<V> task) {
+    private <V> ScheduledFuture<V> schedule(final ScheduledFutureTask<V> task) { //yangyc 提交定时任务 --- task
         if (inEventLoop()) {
-            scheduleFromEventLoop(task);
+            scheduleFromEventLoop(task);  //yangyc 添加到定时任务队列
         } else {
             final long deadlineNanos = task.deadlineNanos();
             // task will add itself to scheduled task queue when run if not expired
             if (beforeScheduledTaskSubmitted(deadlineNanos)) {
-                execute(task);
+                execute(task); //yangyc 通过 EventLoop 的线程，添加到定时任务队列
             } else {
                 lazyExecute(task);
                 // Second hook after scheduling to facilitate race-avoidance
                 if (afterScheduledTaskSubmitted(deadlineNanos)) {
-                    execute(WAKEUP_TASK);
+                    execute(WAKEUP_TASK); //yangyc 通过 EventLoop 的线程，添加到定时任务队列
                 }
             }
         }
@@ -271,13 +271,13 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         return task;
     }
 
-    final void removeScheduled(final ScheduledFutureTask<?> task) {
+    final void removeScheduled(final ScheduledFutureTask<?> task) { //yangyc 移除出定时任务队列
         assert task.isCancelled();
         if (inEventLoop()) {
-            scheduledTaskQueue().removeTyped(task);
+            scheduledTaskQueue().removeTyped(task); //yangyc 移除出定时任务队列
         } else {
             // task will remove itself from scheduled task queue when it runs
-            lazyExecute(task);
+            lazyExecute(task); //yangyc 通过 EventLoop 的线程，移除出定时任务队列
         }
     }
 

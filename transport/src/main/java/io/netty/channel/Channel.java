@@ -79,12 +79,12 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
     /**
      * Returns the globally unique identifier of this {@link Channel}.
      */
-    ChannelId id();
+    ChannelId id(); //yangyc Channel 的编号
 
     /**
      * Return the {@link EventLoop} this {@link Channel} was registered to.
      */
-    EventLoop eventLoop();
+    EventLoop eventLoop(); //yangyc Channel 注册到的 EventLoop
 
     /**
      * Returns the parent of this channel.
@@ -92,27 +92,27 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * @return the parent channel.
      *         {@code null} if this channel does not have a parent channel.
      */
-    Channel parent();
+    Channel parent(); //yangyc 父 Channel 对象
 
     /**
      * Returns the configuration of this channel.
      */
-    ChannelConfig config();
+    ChannelConfig config(); //yangyc Channel 配置参数
 
     /**
      * Returns {@code true} if the {@link Channel} is open and may get active later
      */
-    boolean isOpen();
+    boolean isOpen(); //yangyc Channel 是否打开,即：是否可用
 
     /**
      * Returns {@code true} if the {@link Channel} is registered with an {@link EventLoop}.
      */
-    boolean isRegistered();
+    boolean isRegistered(); //yangyc  Channel 是否注册到 EventLoop 上
 
     /**
      * Return {@code true} if the {@link Channel} is active and so connected.
      */
-    boolean isActive();
+    boolean isActive(); //yangyc Channel 是否激活. ServerSocketChannel#true:Channel 已经绑定到端口上，可提供服务; SocketChannel#true:Channel 连接到远程服务器
 
     /**
      * Return the {@link ChannelMetadata} of the {@link Channel} which describe the nature of the {@link Channel}.
@@ -128,7 +128,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * @return the local address of this channel.
      *         {@code null} if this channel is not bound.
      */
-    SocketAddress localAddress();
+    SocketAddress localAddress(); //yangyc 本地地址
 
     /**
      * Returns the remote address where this channel is connected to.  The
@@ -144,13 +144,13 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      *         the origination of the received message as this method will
      *         return {@code null}.
      */
-    SocketAddress remoteAddress();
+    SocketAddress remoteAddress(); //yangyc 远端地址
 
     /**
      * Returns the {@link ChannelFuture} which will be notified when this
      * channel is closed.  This method always returns the same future instance.
      */
-    ChannelFuture closeFuture();
+    ChannelFuture closeFuture(); //yangyc Channel 关闭的异步结果 Future 对象
 
     /**
      * Returns {@code true} if and only if the I/O thread will perform the
@@ -158,40 +158,40 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * this method returns {@code false} are queued until the I/O thread is
      * ready to process the queued write requests.
      */
-    boolean isWritable();
+    boolean isWritable(); //yangyc Channel 是否可写,  当 Channel 的写缓存区 outbound 非 null 且可写时，返回 true
 
     /**
      * Get how many bytes can be written until {@link #isWritable()} returns {@code false}.
      * This quantity will always be non-negative. If {@link #isWritable()} is {@code false} then 0.
      */
-    long bytesBeforeUnwritable();
+    long bytesBeforeUnwritable(); //yangyc 距离不可写还有多少字节数
 
     /**
      * Get how many bytes must be drained from underlying buffers until {@link #isWritable()} returns {@code true}.
      * This quantity will always be non-negative. If {@link #isWritable()} is {@code true} then 0.
      */
-    long bytesBeforeWritable();
+    long bytesBeforeWritable(); //yangyc 获得距离可写还要多少字节数
 
     /**
      * Returns an <em>internal-use-only</em> object that provides unsafe operations.
      */
-    Unsafe unsafe();
+    Unsafe unsafe(); //yangyc Unsafe 对象  --- 内部接口
 
     /**
      * Return the assigned {@link ChannelPipeline}.
      */
-    ChannelPipeline pipeline();
+    ChannelPipeline pipeline(); //yangyc  ChannelPipeline 对象，用于处理 Inbound 和 Outbound 事件的处理
 
     /**
      * Return the assigned {@link ByteBufAllocator} which will be used to allocate {@link ByteBuf}s.
      */
-    ByteBufAllocator alloc();
+    ByteBufAllocator alloc(); //yangyc ByteBuf 分配器
 
     @Override
-    Channel read();
+    Channel read(); //yangyc 继承至 ChannelOutboundInvoker --- 将返回值从 ChannelOutboundInvoker 修改成 Channel 。
 
     @Override
-    Channel flush();
+    Channel flush(); //yangyc 继承至 ChannelOutboundInvoker --- 将返回值从 ChannelOutboundInvoker 修改成 Channel 。
 
     /**
      * <em>Unsafe</em> operations that should <em>never</em> be called from user-code. These methods
@@ -212,19 +212,19 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
          * Return the assigned {@link RecvByteBufAllocator.Handle} which will be used to allocate {@link ByteBuf}'s when
          * receiving data.
          */
-        RecvByteBufAllocator.Handle recvBufAllocHandle();
+        RecvByteBufAllocator.Handle recvBufAllocHandle(); //yangyc ByteBuf 分配器的处理器
 
         /**
          * Return the {@link SocketAddress} to which is bound local or
          * {@code null} if none.
          */
-        SocketAddress localAddress();
+        SocketAddress localAddress(); //yangyc 本地地址
 
         /**
          * Return the {@link SocketAddress} to which is bound remote or
          * {@code null} if none is bound yet.
          */
-        SocketAddress remoteAddress();
+        SocketAddress remoteAddress(); //yangyc 远端地址
 
         /**
          * Register the {@link Channel} of the {@link ChannelPromise} and notify

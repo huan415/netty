@@ -40,7 +40,7 @@ public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<E
      *
      * @return the {@link #terminationFuture()}
      */
-    Future<?> shutdownGracefully();
+    Future<?> shutdownGracefully();  //yangyc 优雅关闭
 
     /**
      * Signals this executor that the caller wants the executor to be shut down.  Once this method is called,
@@ -56,7 +56,7 @@ public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<E
      *
      * @return the {@link #terminationFuture()}
      */
-    Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit);
+    Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit);  //yangyc 优雅关闭
 
     /**
      * Returns the {@link Future} which is notified when all {@link EventExecutor}s managed by this
@@ -81,11 +81,11 @@ public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<E
     /**
      * Returns one of the {@link EventExecutor}s managed by this {@link EventExecutorGroup}.
      */
-    EventExecutor next();
-
+    EventExecutor next(); //yangyc 下一个 EventExecutor
+    //yangyc ========== 实现自 Iterable 接口 ==========
     @Override
     Iterator<EventExecutor> iterator();
-
+    //yangyc ========== 实现自 ExecutorService 接口 ==========
     @Override
     Future<?> submit(Runnable task);
 
@@ -94,7 +94,7 @@ public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<E
 
     @Override
     <T> Future<T> submit(Callable<T> task);
-
+    //yangyc ========== 实现自 ScheduledExecutorService 接口 ==========
     @Override
     ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit);
 

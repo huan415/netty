@@ -20,13 +20,13 @@ import io.netty.util.IntSupplier;
 /**
  * Default select strategy.
  */
-final class DefaultSelectStrategy implements SelectStrategy {
-    static final SelectStrategy INSTANCE = new DefaultSelectStrategy();
+final class DefaultSelectStrategy implements SelectStrategy { //yangyc 默认选择策略实现类
+    static final SelectStrategy INSTANCE = new DefaultSelectStrategy(); //yangyc 单例
 
     private DefaultSelectStrategy() { }
 
     @Override
-    public int calculateStrategy(IntSupplier selectSupplier, boolean hasTasks) throws Exception {
-        return hasTasks ? selectSupplier.get() : SelectStrategy.SELECT;
+    public int calculateStrategy(IntSupplier selectSupplier, boolean hasTasks) throws Exception { //yangyc hasTasks==true:表示当前已经有任务,调用 IntSupplier#get() 方法，返回当前 Channel 新增的 IO 就绪事件的数量；
+        return hasTasks ? selectSupplier.get() : SelectStrategy.SELECT; //yangyc hasTasks==false: 阻塞 select Channel 感兴趣的就绪 IO 事件
     }
 }

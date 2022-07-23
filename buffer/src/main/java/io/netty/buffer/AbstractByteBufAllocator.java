@@ -28,16 +28,16 @@ import io.netty.util.internal.StringUtil;
  * Skeletal {@link ByteBufAllocator} implementation to extend.
  */
 public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
-    static final int DEFAULT_INITIAL_CAPACITY = 256;
-    static final int DEFAULT_MAX_CAPACITY = Integer.MAX_VALUE;
-    static final int DEFAULT_MAX_COMPONENTS = 16;
-    static final int CALCULATE_THRESHOLD = 1048576 * 4; // 4 MiB page
+    static final int DEFAULT_INITIAL_CAPACITY = 256; //yangyc 默认容量大小
+    static final int DEFAULT_MAX_CAPACITY = Integer.MAX_VALUE; //yangyc  heapBuffer 默认最大容量大小，无限
+    static final int DEFAULT_MAX_COMPONENTS = 16; //yangyc Composite ByteBuf 可包含的 ByteBuf 的最大数量
+    static final int CALCULATE_THRESHOLD = 1048576 * 4; // 4 MiB page //yangyc 扩容分界线，4M
 
     static {
         ResourceLeakDetector.addExclusions(AbstractByteBufAllocator.class, "toLeakAwareBuffer");
     }
 
-    protected static ByteBuf toLeakAwareBuffer(ByteBuf buf) {
+    protected static ByteBuf toLeakAwareBuffer(ByteBuf buf) { //yangyc 将 ByteBuf 装饰成 LeakAware ( 可检测内存泄露 )的 ByteBuf 对象
         ResourceLeakTracker<ByteBuf> leak;
         switch (ResourceLeakDetector.getLevel()) {
             case SIMPLE:
@@ -81,8 +81,8 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return buf;
     }
 
-    private final boolean directByDefault;
-    private final ByteBuf emptyBuf;
+    private final boolean directByDefault; //yangyc 是否倾向创建 Direct ByteBuf
+    private final ByteBuf emptyBuf; //yangyc 空 ByteBuf 缓存,用于 #buffer() 等方法，创建空 ByteBuf 对象时
 
     /**
      * Instance use heap buffers by default
@@ -128,7 +128,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf ioBuffer() {
-        if (PlatformDependent.hasUnsafe() || isDirectBufferPooled()) {
+        if (PlatformDependent.hasUnsafe() || isDirectBufferPooled()) {  //yangyc 根据是否支持 Unsafe 操作的情况，调用 #directBuffer(...) 方法，还是调用 #heapBuffer(...) 方法
             return directBuffer(DEFAULT_INITIAL_CAPACITY);
         }
         return heapBuffer(DEFAULT_INITIAL_CAPACITY);
@@ -136,7 +136,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf ioBuffer(int initialCapacity) {
-        if (PlatformDependent.hasUnsafe() || isDirectBufferPooled()) {
+        if (PlatformDependent.hasUnsafe() || isDirectBufferPooled()) {  //yangyc 根据是否支持 Unsafe 操作的情况，调用 #directBuffer(...) 方法，还是调用 #heapBuffer(...) 方法
             return directBuffer(initialCapacity);
         }
         return heapBuffer(initialCapacity);
@@ -144,24 +144,24 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf ioBuffer(int initialCapacity, int maxCapacity) {
-        if (PlatformDependent.hasUnsafe() || isDirectBufferPooled()) {
+        if (PlatformDependent.hasUnsafe() || isDirectBufferPooled()) {  //yangyc 根据是否支持 Unsafe 操作的情况，调用 #directBuffer(...) 方法，还是调用 #heapBuffer(...) 方法
             return directBuffer(initialCapacity, maxCapacity);
         }
         return heapBuffer(initialCapacity, maxCapacity);
     }
 
     @Override
-    public ByteBuf heapBuffer() {
+    public ByteBuf heapBuffer() { //yangyc 最终调用 #newHeapBuffer(int initialCapacity, int maxCapacity) 抽象方法，创建 Heap ByteBuf 对象
         return heapBuffer(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_CAPACITY);
     }
 
     @Override
-    public ByteBuf heapBuffer(int initialCapacity) {
+    public ByteBuf heapBuffer(int initialCapacity) {//yangyc 最终调用 #newHeapBuffer(int initialCapacity, int maxCapacity) 抽象方法，创建 Heap ByteBuf 对象
         return heapBuffer(initialCapacity, DEFAULT_MAX_CAPACITY);
     }
 
     @Override
-    public ByteBuf heapBuffer(int initialCapacity, int maxCapacity) {
+    public ByteBuf heapBuffer(int initialCapacity, int maxCapacity) { //yangyc 最终调用 #newHeapBuffer(int initialCapacity, int maxCapacity) 抽象方法，创建 Heap ByteBuf 对象
         if (initialCapacity == 0 && maxCapacity == 0) {
             return emptyBuf;
         }
@@ -170,17 +170,17 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     }
 
     @Override
-    public ByteBuf directBuffer() {
+    public ByteBuf directBuffer() { //yangyc 最终调用 #newDirectBuffer(int initialCapacity, int maxCapacity) 抽象方法，创建 Direct ByteBuf 对象
         return directBuffer(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_CAPACITY);
     }
 
     @Override
-    public ByteBuf directBuffer(int initialCapacity) {
+    public ByteBuf directBuffer(int initialCapacity) { //yangyc 最终调用 #newDirectBuffer(int initialCapacity, int maxCapacity) 抽象方法，创建 Direct ByteBuf 对象
         return directBuffer(initialCapacity, DEFAULT_MAX_CAPACITY);
     }
 
     @Override
-    public ByteBuf directBuffer(int initialCapacity, int maxCapacity) {
+    public ByteBuf directBuffer(int initialCapacity, int maxCapacity) {  //yangyc 最终调用 #newDirectBuffer(int initialCapacity, int maxCapacity) 抽象方法，创建 Direct ByteBuf 对象
         if (initialCapacity == 0 && maxCapacity == 0) {
             return emptyBuf;
         }
@@ -189,7 +189,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     }
 
     @Override
-    public CompositeByteBuf compositeBuffer() {
+    public CompositeByteBuf compositeBuffer() { //yangyc 根据 directByDefault 的值，调用 #compositeDirectBuffer(...) 方法，还是调用 #compositeHeapBuffer(...) 方法
         if (directByDefault) {
             return compositeDirectBuffer();
         }
@@ -197,7 +197,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     }
 
     @Override
-    public CompositeByteBuf compositeBuffer(int maxNumComponents) {
+    public CompositeByteBuf compositeBuffer(int maxNumComponents) {  //yangyc 根据 directByDefault 的值，调用 #compositeDirectBuffer(...) 方法，还是调用 #compositeHeapBuffer(...) 方法
         if (directByDefault) {
             return compositeDirectBuffer(maxNumComponents);
         }
@@ -205,22 +205,22 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     }
 
     @Override
-    public CompositeByteBuf compositeHeapBuffer() {
+    public CompositeByteBuf compositeHeapBuffer() { //yangyc 调用 #toLeakAwareBuffer(CompositeByteBuf) 方法，装饰成 LeakAware 的 ByteBuf 对象
         return compositeHeapBuffer(DEFAULT_MAX_COMPONENTS);
     }
 
     @Override
-    public CompositeByteBuf compositeHeapBuffer(int maxNumComponents) {
+    public CompositeByteBuf compositeHeapBuffer(int maxNumComponents) { //yangyc 调用 #toLeakAwareBuffer(CompositeByteBuf) 方法，装饰成 LeakAware 的 ByteBuf 对象
         return toLeakAwareBuffer(new CompositeByteBuf(this, false, maxNumComponents));
     }
 
     @Override
-    public CompositeByteBuf compositeDirectBuffer() {
+    public CompositeByteBuf compositeDirectBuffer() { //yangyc 调用 #toLeakAwareBuffer(CompositeByteBuf) 方法，装饰成 LeakAware 的 ByteBuf 对象
         return compositeDirectBuffer(DEFAULT_MAX_COMPONENTS);
     }
 
     @Override
-    public CompositeByteBuf compositeDirectBuffer(int maxNumComponents) {
+    public CompositeByteBuf compositeDirectBuffer(int maxNumComponents) { //yangyc 调用 #toLeakAwareBuffer(CompositeByteBuf) 方法，装饰成 LeakAware 的 ByteBuf 对象
         return toLeakAwareBuffer(new CompositeByteBuf(this, true, maxNumComponents));
     }
 
@@ -249,7 +249,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     }
 
     @Override
-    public int calculateNewCapacity(int minNewCapacity, int maxCapacity) {
+    public int calculateNewCapacity(int minNewCapacity, int maxCapacity) { //yangyc 计算新的容量。默认情况下，2 倍扩容，并且不超过最大容量上限
         checkPositiveOrZero(minNewCapacity, "minNewCapacity");
         if (minNewCapacity > maxCapacity) {
             throw new IllegalArgumentException(String.format(
@@ -259,11 +259,11 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         final int threshold = CALCULATE_THRESHOLD; // 4 MiB page
 
         if (minNewCapacity == threshold) {
-            return threshold;
+            return threshold; //yangyc  等于 threshold ，直接返回 threshold
         }
 
         // If over threshold, do not double but just increase by threshold.
-        if (minNewCapacity > threshold) {
+        if (minNewCapacity > threshold) { //yangyc  超过 threshold ，增加 threshold ，不超过 maxCapacity 大小
             int newCapacity = minNewCapacity / threshold * threshold;
             if (newCapacity > maxCapacity - threshold) {
                 newCapacity = maxCapacity;
@@ -273,7 +273,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
             return newCapacity;
         }
 
-        // 64 <= newCapacity is a power of 2 <= threshold
+        // 64 <= newCapacity is a power of 2 <= threshold //yangyc  未超过 threshold ，从 64 开始两倍计算，不超过 4M 大小
         final int newCapacity = MathUtil.findNextPositivePowerOfTwo(Math.max(minNewCapacity, 64));
         return Math.min(newCapacity, maxCapacity);
     }

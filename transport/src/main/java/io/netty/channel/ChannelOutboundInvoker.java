@@ -20,10 +20,10 @@ import io.netty.util.concurrent.FutureListener;
 
 import java.net.ConnectException;
 import java.net.SocketAddress;
+//yangyc 1.发起 Channel 操作   2.创建 Promise 对象
+public interface ChannelOutboundInvoker { //yangyc Channel 发起请求, Unsafe 处理请求。方向：tail->head
 
-public interface ChannelOutboundInvoker {
-
-    /**
+    /** yangyc ================Channel 操作相关==========================
      * Request to bind to the given {@link SocketAddress} and notify the {@link ChannelFuture} once the operation
      * completes, either because the operation was successful or because of an error.
      * <p>
@@ -205,31 +205,31 @@ public interface ChannelOutboundInvoker {
      * This method will not request to actual flush, so be sure to call {@link #flush()}
      * once you want to request to flush all pending data to the actual transport.
      */
-    ChannelFuture write(Object msg);
+    ChannelFuture write(Object msg); //yangyc 将数据写到内存队列中,此时数据并没有写入到对端
 
     /**
      * Request to write a message via this {@link ChannelHandlerContext} through the {@link ChannelPipeline}.
      * This method will not request to actual flush, so be sure to call {@link #flush()}
      * once you want to request to flush all pending data to the actual transport.
      */
-    ChannelFuture write(Object msg, ChannelPromise promise);
+    ChannelFuture write(Object msg, ChannelPromise promise); //yangyc 将数据写到内存队列中,此时数据并没有写入到对端
 
     /**
      * Request to flush all pending messages via this ChannelOutboundInvoker.
      */
-    ChannelOutboundInvoker flush();
+    ChannelOutboundInvoker flush(); //yangyc 刷新内存队列，将其中的数据写入到对端，此时数据才真正写到对端
 
     /**
      * Shortcut for call {@link #write(Object, ChannelPromise)} and {@link #flush()}.
      */
-    ChannelFuture writeAndFlush(Object msg, ChannelPromise promise);
+    ChannelFuture writeAndFlush(Object msg, ChannelPromise promise); //yangyc write + flush 的组合，将数据写到内存队列后，立即刷新内存队列，又将其中的数据写入到对端。
 
     /**
      * Shortcut for call {@link #write(Object)} and {@link #flush()}.
      */
-    ChannelFuture writeAndFlush(Object msg);
+    ChannelFuture writeAndFlush(Object msg); //yangyc write + flush 的组合，将数据写到内存队列后，立即刷新内存队列，又将其中的数据写入到对端。
 
-    /**
+    /** yangyc ================Promise 操作相关==========================
      * Return a new {@link ChannelPromise}.
      */
     ChannelPromise newPromise();

@@ -26,17 +26,17 @@ public interface EventExecutorChooserFactory {
     /**
      * Returns a new {@link EventExecutorChooser}.
      */
-    EventExecutorChooser newChooser(EventExecutor[] executors);
+    EventExecutorChooser newChooser(EventExecutor[] executors); //yangyc  chooser工厂类创建 EventExecutor 选择器，有两种：PowerOfTwoEventExecutorChooser和GenericEventExecutorChooser
 
     /**
      * Chooses the next {@link EventExecutor} to use.
      */
     @UnstableApi
-    interface EventExecutorChooser {
+    interface EventExecutorChooser { //yangyc 选择器接口
 
         /**
          * Returns the new {@link EventExecutor} to use.
          */
-        EventExecutor next();
+        EventExecutor next(); //yangyc 选择下一个 EventExecutor 对象
     }
 }

@@ -26,7 +26,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
+final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> { //yangyc 基于 ByteBuffer + Unsafe 的可重用 ByteBuf 实现类。所以，泛型 T 为 ByteBuffer
     private static final ObjectPool<PooledUnsafeDirectByteBuf> RECYCLER = ObjectPool.newPool(
             new ObjectCreator<PooledUnsafeDirectByteBuf>() {
         @Override
@@ -36,12 +36,12 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     });
 
     static PooledUnsafeDirectByteBuf newInstance(int maxCapacity) {
-        PooledUnsafeDirectByteBuf buf = RECYCLER.get();
-        buf.reuse(maxCapacity);
+        PooledUnsafeDirectByteBuf buf = RECYCLER.get(); //yangyc 从对象池中获取一个空闲状态的 ByteBuf 对象，如果没有空闲则创建
+        buf.reuse(maxCapacity); //yangyc 重置 byteBuf 内部的字段，并且设置 maxCapacity
         return buf;
     }
 
-    private long memoryAddress;
+    private long memoryAddress; //yangyc 内存地址
 
     private PooledUnsafeDirectByteBuf(Handle<PooledUnsafeDirectByteBuf> recyclerHandle, int maxCapacity) {
         super(recyclerHandle, maxCapacity);
@@ -50,18 +50,18 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     @Override
     void init(PoolChunk<ByteBuffer> chunk, ByteBuffer nioBuffer,
               long handle, int offset, int length, int maxLength, PoolThreadCache cache) {
-        super.init(chunk, nioBuffer, handle, offset, length, maxLength, cache);
-        initMemoryAddress();
+        super.init(chunk, nioBuffer, handle, offset, length, maxLength, cache); //yangyc 调用父初始化方法
+        initMemoryAddress();  //yangyc 初始化内存地址
     }
 
     @Override
     void initUnpooled(PoolChunk<ByteBuffer> chunk, int length) {
-        super.initUnpooled(chunk, length);
-        initMemoryAddress();
+        super.initUnpooled(chunk, length); //yangyc 调用父初始化方法
+        initMemoryAddress(); //yangyc 初始化内存地址
     }
 
-    private void initMemoryAddress() {
-        memoryAddress = PlatformDependent.directBufferAddress(memory) + offset;
+    private void initMemoryAddress() { //yangyc 初始化内存地址
+        memoryAddress = PlatformDependent.directBufferAddress(memory) + offset; //yangyc 获得 ByteBuffer 对象的起始内存地址
     }
 
     @Override
@@ -212,7 +212,7 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     }
 
     @Override
-    public ByteBuf copy(int index, int length) {
+    public ByteBuf copy(int index, int length) { //yangyc 复制指定范围的数据到新创建的 Direct ByteBuf 对象
         return UnsafeByteBufUtil.copy(this, addr(index), index, length);
     }
 
@@ -247,8 +247,8 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     }
 
     @Override
-    protected SwappedByteBuf newSwappedByteBuf() {
-        if (PlatformDependent.isUnaligned()) {
+    protected SwappedByteBuf newSwappedByteBuf() { //yangyc 创建 SwappedByteBuf 对象
+        if (PlatformDependent.isUnaligned()) { //yangyc 支持
             // Only use if unaligned access is supported otherwise there is no gain.
             return new UnsafeDirectSwappedByteBuf(this);
         }

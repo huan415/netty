@@ -36,7 +36,7 @@ import io.netty.util.internal.StringUtil;
 /**
  * Special {@link ByteBuf} implementation which is used by the {@link ReplayingDecoder}
  */
-final class ReplayingDecoderByteBuf extends ByteBuf {
+final class ReplayingDecoderByteBuf extends ByteBuf { //yangyc 用于构建在 IO 阻塞条件下实现无阻塞解码的特殊 ByteBuf对 象。当要读取的数据还未接收完全时，抛出异常，交由 ReplayingDecoder 处理
 
     private static final Signal REPLAY = ReplayingDecoder.REPLAY;
 

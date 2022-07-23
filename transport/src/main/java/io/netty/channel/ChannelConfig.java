@@ -72,7 +72,7 @@ public interface ChannelConfig {
     /**
      * Sets the configuration properties from the specified {@link Map}.
      */
-    boolean setOptions(Map<ChannelOption<?>, ?> options);
+    boolean setOptions(Map<ChannelOption<?>, ?> options); //yangyc 调用相应的 #setXXX(...) 方法, 具体看 DefaultChannelConfig#setOptions
 
     /**
      * Return the value of the given {@link ChannelOption}

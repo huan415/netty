@@ -12,6 +12,10 @@
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
  * License for the specific language governing permissions and limitations
  * under the License.
+ * yangyc 使用了 WeakReference( 弱引用 )和 ReferenceQueue( 引用队列 )，过程如下：
+ * yangyc 根据检测级别和采样率的设置，在需要时为需要检测的 ByteBuf 创建WeakReference 引用。
+ * yangyc 当 JVM 回收掉 ByteBuf 对象时，JVM 会将 WeakReference 放入ReferenceQueue 队列中。
+ * yangyc 通过对 ReferenceQueue 中 WeakReference 的检查，判断在 GC 前是否有释放ByteBuf 的资源，就可以知道是否有资源释放。
  */
 
 package io.netty.util;
@@ -39,11 +43,11 @@ import static io.netty.util.internal.StringUtil.EMPTY_STRING;
 import static io.netty.util.internal.StringUtil.NEWLINE;
 import static io.netty.util.internal.StringUtil.simpleClassName;
 
-public class ResourceLeakDetector<T> {
+public class ResourceLeakDetector<T> { //yangyc 内存泄露检测器
 
     private static final String PROP_LEVEL_OLD = "io.netty.leakDetectionLevel";
     private static final String PROP_LEVEL = "io.netty.leakDetection.level";
-    private static final Level DEFAULT_LEVEL = Level.SIMPLE;
+    private static final Level DEFAULT_LEVEL = Level.SIMPLE; //yangyc 默认内存检测级别
 
     private static final String PROP_TARGET_RECORDS = "io.netty.leakDetection.targetRecords";
     private static final int DEFAULT_TARGET_RECORDS = 4;
@@ -52,32 +56,32 @@ public class ResourceLeakDetector<T> {
     // There is a minor performance benefit in TLR if this is a power of 2.
     private static final int DEFAULT_SAMPLING_INTERVAL = 128;
 
-    private static final int TARGET_RECORDS;
+    private static final int TARGET_RECORDS;  //yangyc 每个 DefaultResourceLeak 记录的 Record 数量
     static final int SAMPLING_INTERVAL;
 
     /**
      * Represents the level of resource leak detection.
      */
-    public enum Level {
+    public enum Level { //yangyc 内存检测级别枚举
         /**
          * Disables resource leak detection.
          */
-        DISABLED,
+        DISABLED, //yangyc 禁用（DISABLED） - 完全禁止泄露检测，省点消耗
         /**
          * Enables simplistic sampling resource leak detection which reports there is a leak or not,
          * at the cost of small overhead (default).
          */
-        SIMPLE,
+        SIMPLE, //yangyc 简单（SIMPLE） - 默认等级，告诉我们取样的1%的ByteBuf是否发生了泄露，但总共一次只打印一次，看不到就没有了
         /**
          * Enables advanced sampling resource leak detection which reports where the leaked object was accessed
          * recently at the cost of high overhead.
          */
-        ADVANCED,
+        ADVANCED, //yangyc 高级（ADVANCED） - 告诉我们取样的1%的ByteBuf发生泄露的地方。每种类型的泄漏（创建的地方与访问路径一致）只打印一次。对性能有影响
         /**
          * Enables paranoid resource leak detection which reports where the leaked object was accessed recently,
          * at the cost of the highest possible overhead (for testing purposes only).
          */
-        PARANOID;
+        PARANOID; //yangyc 偏执（PARANOID） - 跟高级选项类似，但此选项检测所有ByteBuf，而不仅仅是取样的那1%。对性能有绝大的影响
 
         /**
          * Returns level based on string value. Accepts also string that represents ordinal number of enum.
@@ -96,12 +100,12 @@ public class ResourceLeakDetector<T> {
         }
     }
 
-    private static Level level;
+    private static Level level; //yangyc 内存泄露检测等级
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ResourceLeakDetector.class);
 
     static {
-        final boolean disabled;
+        final boolean disabled; //yangyc 是否禁用泄露检测
         if (SystemPropertyUtil.get("io.netty.noResourceLeakDetection") != null) {
             disabled = SystemPropertyUtil.getBoolean("io.netty.noResourceLeakDetection", false);
             logger.debug("-Dio.netty.noResourceLeakDetection: {}", disabled);
@@ -112,19 +116,19 @@ public class ResourceLeakDetector<T> {
             disabled = false;
         }
 
-        Level defaultLevel = disabled? Level.DISABLED : DEFAULT_LEVEL;
+        Level defaultLevel = disabled? Level.DISABLED : DEFAULT_LEVEL;  //yangyc 获得默认级别
 
         // First read old property name
-        String levelStr = SystemPropertyUtil.get(PROP_LEVEL_OLD, defaultLevel.name());
+        String levelStr = SystemPropertyUtil.get(PROP_LEVEL_OLD, defaultLevel.name()); //yangyc 获得配置的级别字符串，从老版本的配置
 
         // If new property name is present, use it
-        levelStr = SystemPropertyUtil.get(PROP_LEVEL, levelStr);
-        Level level = Level.parseLevel(levelStr);
+        levelStr = SystemPropertyUtil.get(PROP_LEVEL, levelStr); //yangyc 获得配置的级别字符串，从新版本的配置
+        Level level = Level.parseLevel(levelStr);  //yangyc 获得最终的级别
 
-        TARGET_RECORDS = SystemPropertyUtil.getInt(PROP_TARGET_RECORDS, DEFAULT_TARGET_RECORDS);
+        TARGET_RECORDS = SystemPropertyUtil.getInt(PROP_TARGET_RECORDS, DEFAULT_TARGET_RECORDS); //yangyc 初始化 TARGET_RECORDS
         SAMPLING_INTERVAL = SystemPropertyUtil.getInt(PROP_SAMPLING_INTERVAL, DEFAULT_SAMPLING_INTERVAL);
 
-        ResourceLeakDetector.level = level;
+        ResourceLeakDetector.level = level; //yangyc 设置最终的级别
         if (logger.isDebugEnabled()) {
             logger.debug("-D{}: {}", PROP_LEVEL, level.name().toLowerCase());
             logger.debug("-D{}: {}", PROP_TARGET_RECORDS, TARGET_RECORDS);
@@ -161,15 +165,15 @@ public class ResourceLeakDetector<T> {
     }
 
     /** the collection of active resources */
-    private final Set<DefaultResourceLeak<?>> allLeaks =
+    private final Set<DefaultResourceLeak<?>> allLeaks =  //yangyc DefaultResourceLeak 集合, 因为 Java 没有自带的 ConcurrentSet ，所以只好使用使用 ConcurrentMap 。也就是说，value 属性实际没有任何用途
             Collections.newSetFromMap(new ConcurrentHashMap<DefaultResourceLeak<?>, Boolean>());
 
-    private final ReferenceQueue<Object> refQueue = new ReferenceQueue<Object>();
-    private final Set<String> reportedLeaks =
+    private final ReferenceQueue<Object> refQueue = new ReferenceQueue<Object>(); //yangyc 引用队列
+    private final Set<String> reportedLeaks = //yangyc 已汇报的内存泄露的资源类型的集合
             Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
-    private final String resourceType;
-    private final int samplingInterval;
+    private final String resourceType;  //yangyc 资源类型
+    private final int samplingInterval; //yangyc 采集评率
 
     /**
      * @deprecated use {@link ResourceLeakDetectorFactory#newResourceLeakDetector(Class, int, long)}.
@@ -241,35 +245,35 @@ public class ResourceLeakDetector<T> {
      * @return the {@link ResourceLeakTracker} or {@code null}
      */
     @SuppressWarnings("unchecked")
-    public final ResourceLeakTracker<T> track(T obj) {
+    public final ResourceLeakTracker<T> track(T obj) { //yangyc 给指定资源( 例如 ByteBuf 对象 )创建一个检测它是否泄漏的 ResourceLeakTracker 对象
         return track0(obj);
     }
 
     @SuppressWarnings("unchecked")
-    private DefaultResourceLeak track0(T obj) {
+    private DefaultResourceLeak track0(T obj) { //yangyc 给指定资源( 例如 ByteBuf 对象 )创建一个检测它是否泄漏的 ResourceLeakTracker 对象 --- 影响性能
         Level level = ResourceLeakDetector.level;
         if (level == Level.DISABLED) {
-            return null;
+            return null; //yangyc DISABLED 级别，不创建DefaultResourceLeak， 性能最好
         }
 
-        if (level.ordinal() < Level.PARANOID.ordinal()) {
-            if ((PlatformDependent.threadLocalRandom().nextInt(samplingInterval)) == 0) {
-                reportLeak();
-                return new DefaultResourceLeak(obj, refQueue, allLeaks, getInitialHint(resourceType));
+        if (level.ordinal() < Level.PARANOID.ordinal()) { //yangyc SIMPLE 和 ADVANCED
+            if ((PlatformDependent.threadLocalRandom().nextInt(samplingInterval)) == 0) { //yangyc 随机，概率为 1 / samplingInterval，约等于 1%， 即：1% 概率创建 DefaultResourceLeak
+                reportLeak();  //yangyc 检测是否有内存泄露。若有，则进行汇报
+                return new DefaultResourceLeak(obj, refQueue, allLeaks, getInitialHint(resourceType));  //yangyc 创建 DefaultResourceLeak 对象
             }
             return null;
         }
-        reportLeak();
-        return new DefaultResourceLeak(obj, refQueue, allLeaks, getInitialHint(resourceType));
+        reportLeak();  //yangyc PARANOID 级别, 汇报内存是否泄漏
+        return new DefaultResourceLeak(obj, refQueue, allLeaks, getInitialHint(resourceType));  //yangyc PARANOID 级别，一定会创建 DefaultResourceLeak 对象,对性能有绝大的影响
     }
 
-    private void clearRefQueue() {
+    private void clearRefQueue() { //yangyc 清理队列
         for (;;) {
             DefaultResourceLeak ref = (DefaultResourceLeak) refQueue.poll();
             if (ref == null) {
                 break;
             }
-            ref.dispose();
+            ref.dispose();  //yangyc 清理，并返回是否内存泄露
         }
     }
 
@@ -283,25 +287,25 @@ public class ResourceLeakDetector<T> {
         return logger.isErrorEnabled();
     }
 
-    private void reportLeak() {
+    private void reportLeak() {  //yangyc 检测是否有内存泄露。若有，则进行汇报
         if (!needReport()) {
-            clearRefQueue();
+            clearRefQueue(); //yangyc 如果不允许打印错误日志，则无法汇报，清理队列，并直接结束
             return;
         }
 
         // Detect and report previous leaks.
-        for (;;) {
+        for (;;) {  //yangyc 循环引用队列，直到为空
             DefaultResourceLeak ref = (DefaultResourceLeak) refQueue.poll();
             if (ref == null) {
                 break;
             }
 
-            if (!ref.dispose()) {
+            if (!ref.dispose()) {  //yangyc 清理，并返回是否内存泄露。如果未泄露，就直接 continue
                 continue;
             }
 
-            String records = ref.getReportAndClearRecords();
-            if (reportedLeaks.add(records)) {
+            String records = ref.getReportAndClearRecords(); //yangyc 获得 Record 日志
+            if (reportedLeaks.add(records)) { //yangyc 相同 Record 日志，只汇报一次
                 if (records.isEmpty()) {
                     reportUntracedLeak(resourceType);
                 } else {
@@ -353,22 +357,22 @@ public class ResourceLeakDetector<T> {
 
     @SuppressWarnings("deprecation")
     private static final class DefaultResourceLeak<T>
-            extends WeakReference<Object> implements ResourceLeakTracker<T>, ResourceLeak {
+            extends WeakReference<Object> implements ResourceLeakTracker<T>, ResourceLeak { //yangyc 实现 ResourceLeakTracker 接口，默认 ResourceLeakTracker 实现类。同时，它是 ResourceLeakDetector 内部静态类
 
         @SuppressWarnings("unchecked") // generics and updaters do not mix.
-        private static final AtomicReferenceFieldUpdater<DefaultResourceLeak<?>, TraceRecord> headUpdater =
+        private static final AtomicReferenceFieldUpdater<DefaultResourceLeak<?>, TraceRecord> headUpdater = //yangyc head 的更新器
                 (AtomicReferenceFieldUpdater)
                         AtomicReferenceFieldUpdater.newUpdater(DefaultResourceLeak.class, TraceRecord.class, "head");
 
         @SuppressWarnings("unchecked") // generics and updaters do not mix.
-        private static final AtomicIntegerFieldUpdater<DefaultResourceLeak<?>> droppedRecordsUpdater =
+        private static final AtomicIntegerFieldUpdater<DefaultResourceLeak<?>> droppedRecordsUpdater = //yangyc droppedRecords 的更新器
                 (AtomicIntegerFieldUpdater)
                         AtomicIntegerFieldUpdater.newUpdater(DefaultResourceLeak.class, "droppedRecords");
 
         @SuppressWarnings("unused")
-        private volatile TraceRecord head;
+        private volatile TraceRecord head; //yangyc Record 链的头节点
         @SuppressWarnings("unused")
-        private volatile int droppedRecords;
+        private volatile int droppedRecords; //yangyc 丢弃的 Record 计数
 
         private final Set<DefaultResourceLeak<?>> allLeaks;
         private final int trackedHash;
@@ -394,12 +398,12 @@ public class ResourceLeakDetector<T> {
         }
 
         @Override
-        public void record() {
+        public void record() { //yangyc 创建 Record 对象，添加到 head 链中
             record0(null);
         }
 
         @Override
-        public void record(Object hint) {
+        public void record(Object hint) {  //yangyc 创建 Record 对象，添加到 head 链中
             record0(hint);
         }
 
@@ -429,7 +433,7 @@ public class ResourceLeakDetector<T> {
          * object isn't shared! If this is a problem, the loop can be aborted and the record dropped, because another
          * thread won the race.
          */
-        private void record0(Object hint) {
+        private void record0(Object hint) {  //yangyc 创建 Record 对象，添加到 head 链中
             // Check TARGET_RECORDS > 0 here to avoid similar check before remove from and add to lastRecords
             if (TARGET_RECORDS > 0) {
                 TraceRecord oldHead;
@@ -437,11 +441,11 @@ public class ResourceLeakDetector<T> {
                 TraceRecord newHead;
                 boolean dropped;
                 do {
-                    if ((prevHead = oldHead = headUpdater.get(this)) == null) {
+                    if ((prevHead = oldHead = headUpdater.get(this)) == null) {  //yangyc 已经关闭，则返回
                         // already closed.
                         return;
                     }
-                    final int numElements = oldHead.pos + 1;
+                    final int numElements = oldHead.pos + 1;  //yangyc 当前 DefaultResourceLeak 对象所拥有的 Record 数量超过 TARGET_RECORDS 时，随机丢弃当前 head 节点的数据
                     if (numElements >= TARGET_RECORDS) {
                         final int backOffFactor = Math.min(numElements - TARGET_RECORDS, 30);
                         if (dropped = PlatformDependent.threadLocalRandom().nextInt(1 << backOffFactor) != 0) {
@@ -450,37 +454,37 @@ public class ResourceLeakDetector<T> {
                     } else {
                         dropped = false;
                     }
-                    newHead = hint != null ? new TraceRecord(prevHead, hint) : new TraceRecord(prevHead);
+                    newHead = hint != null ? new TraceRecord(prevHead, hint) : new TraceRecord(prevHead);  //yangyc 创建新 Record 对象，作为头节点，指向原头节点
                 } while (!headUpdater.compareAndSet(this, oldHead, newHead));
                 if (dropped) {
-                    droppedRecordsUpdater.incrementAndGet(this);
+                    droppedRecordsUpdater.incrementAndGet(this); //yangyc 若丢弃，增加 droppedRecordsUpdater 计数
                 }
             }
         }
 
-        boolean dispose() {
-            clear();
-            return allLeaks.remove(this);
+        boolean dispose() { //yangyc  清理，并返回是否内存泄露
+            clear(); //yangyc 清理 referent 的引用
+            return allLeaks.remove(this); //yangyc 移除出 allLeaks 。移除成功，意味着内存泄露
         }
 
         @Override
-        public boolean close() {
-            if (allLeaks.remove(this)) {
+        public boolean close() { //yangyc  关闭 DefaultResourceLeak 对象, 将 DefaultResourceLeak 对象，从 allLeaks 中移除
+            if (allLeaks.remove(this)) { //yangyc 移除出 allLeaks
                 // Call clear so the reference is not even enqueued.
-                clear();
-                headUpdater.set(this, null);
-                return true;
+                clear();  //yangyc 清理 referent 的引用
+                headUpdater.set(this, null); //yangyc 置空 head
+                return true; //yangyc 返回成功
             }
-            return false;
+            return false; //yangyc 返回失败
         }
 
         @Override
-        public boolean close(T trackedObject) {
+        public boolean close(T trackedObject) { //yangyc 关闭 DefaultResourceLeak 对象
             // Ensure that the object that was tracked is the same as the one that was passed to close(...).
-            assert trackedHash == System.identityHashCode(trackedObject);
+            assert trackedHash == System.identityHashCode(trackedObject); //yangyc 校验一致
 
             try {
-                return close();
+                return close();  //yangyc 关闭
             } finally {
                 // This method will do `synchronized(trackedObject)` and we should be sure this will not cause deadlock.
                 // It should not, because somewhere up the callstack should be a (successful) `trackedObject.release`,
@@ -518,8 +522,8 @@ public class ResourceLeakDetector<T> {
         }
 
         @Override
-        public String toString() {
-            TraceRecord oldHead = headUpdater.get(this);
+        public String toString() { //yangyc 当 DefaultResourceLeak 追踪到内存泄露，会在 ResourceLeakDetector#reportLeak() 方法中，调用 DefaultResourceLeak#toString() 方法，拼接提示信息
+            TraceRecord oldHead = headUpdater.get(this); //yangyc 获得 head 属性
             return generateReport(oldHead);
         }
 
@@ -531,7 +535,7 @@ public class ResourceLeakDetector<T> {
         private String generateReport(TraceRecord oldHead) {
             if (oldHead == null) {
                 // Already closed
-                return EMPTY_STRING;
+                return EMPTY_STRING; //yangyc 若为空，说明已经关闭
             }
 
             final int dropped = droppedRecordsUpdater.get(this);
@@ -546,7 +550,7 @@ public class ResourceLeakDetector<T> {
             Set<String> seen = new HashSet<String>(present);
             for (; oldHead != TraceRecord.BOTTOM; oldHead = oldHead.next) {
                 String s = oldHead.toString();
-                if (seen.add(s)) {
+                if (seen.add(s)) { //yangyc 是否重复
                     if (oldHead.next == TraceRecord.BOTTOM) {
                         buf.append("Created at:").append(NEWLINE).append(s);
                     } else {
@@ -557,14 +561,14 @@ public class ResourceLeakDetector<T> {
                 }
             }
 
-            if (duped > 0) {
+            if (duped > 0) { //yangyc 拼接 duped ( 重复 ) 次数
                 buf.append(": ")
                         .append(duped)
                         .append(" leak records were discarded because they were duplicates")
                         .append(NEWLINE);
             }
 
-            if (dropped > 0) {
+            if (dropped > 0) { //yangyc 拼接 dropped (丢弃) 次数
                 buf.append(": ")
                    .append(dropped)
                    .append(" leak records were discarded because the leak record count is targeted to ")
@@ -580,10 +584,10 @@ public class ResourceLeakDetector<T> {
         }
     }
 
-    private static final AtomicReference<String[]> excludedMethods =
+    private static final AtomicReference<String[]> excludedMethods =  //yangyc 忽略的方法集合
             new AtomicReference<String[]>(EmptyArrays.EMPTY_STRINGS);
 
-    public static void addExclusions(Class clz, String ... methodNames) {
+    public static void addExclusions(Class clz, String ... methodNames) {  //yangyc 添加忽略的方法集合
         Set<String> nameSet = new HashSet<String>(Arrays.asList(methodNames));
         // Use loop rather than lookup. This avoids knowing the parameters, and doesn't have to handle
         // NoSuchMethodException.

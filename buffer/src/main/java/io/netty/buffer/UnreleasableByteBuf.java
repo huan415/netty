@@ -23,7 +23,7 @@ import java.nio.ByteOrder;
  * A {@link ByteBuf} implementation that wraps another buffer to prevent a user from increasing or decreasing the
  * wrapped buffer's reference count.
  */
-final class UnreleasableByteBuf extends WrappedByteBuf {
+final class UnreleasableByteBuf extends WrappedByteBuf { //yangyc 用于阻止他人对装饰的 ByteBuf 的销毁，避免被错误销毁掉
 
     private SwappedByteBuf swappedBuf;
 
@@ -63,7 +63,7 @@ final class UnreleasableByteBuf extends WrappedByteBuf {
     }
 
     @Override
-    public ByteBuf slice() {
+    public ByteBuf slice() { //yangyc 包一层 UnreleasableByteBuf 对象
         return new UnreleasableByteBuf(buf.slice());
     }
 

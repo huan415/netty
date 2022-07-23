@@ -31,14 +31,14 @@ import java.util.concurrent.TimeUnit;
 /**
  * Abstract base class for {@link EventExecutor} implementations.
  */
-public abstract class AbstractEventExecutor extends AbstractExecutorService implements EventExecutor {
+public abstract class AbstractEventExecutor extends AbstractExecutorService implements EventExecutor { //yangyc 抽象的事件执行器
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractEventExecutor.class);
 
     static final long DEFAULT_SHUTDOWN_QUIET_PERIOD = 2;
     static final long DEFAULT_SHUTDOWN_TIMEOUT = 15;
 
-    private final EventExecutorGroup parent;
-    private final Collection<EventExecutor> selfCollection = Collections.<EventExecutor>singleton(this);
+    private final EventExecutorGroup parent; //yangyc 所属 EventExecutorGroup
+    private final Collection<EventExecutor> selfCollection = Collections.<EventExecutor>singleton(this); //yangyc EventExecutor 数组。只包含自己 --- 迭代器用
 
     protected AbstractEventExecutor() {
         this(null);
@@ -49,18 +49,18 @@ public abstract class AbstractEventExecutor extends AbstractExecutorService impl
     }
 
     @Override
-    public EventExecutorGroup parent() {
+    public EventExecutorGroup parent() { //yangyc 所属 EventExecutorGroup
         return parent;
     }
 
     @Override
-    public EventExecutor next() {
+    public EventExecutor next() { //yangyc 获得自己
         return this;
     }
 
     @Override
-    public boolean inEventLoop() {
-        return inEventLoop(Thread.currentThread());
+    public boolean inEventLoop() { //yangyc 判断当前线程是否在 EventLoop 线程中
+        return inEventLoop(Thread.currentThread()); //yangyc 在子类中实现
     }
 
     @Override
@@ -78,92 +78,92 @@ public abstract class AbstractEventExecutor extends AbstractExecutorService impl
      */
     @Override
     @Deprecated
-    public abstract void shutdown();
+    public abstract void shutdown(); //yangyc 关闭执行器
 
     /**
      * @deprecated {@link #shutdownGracefully(long, long, TimeUnit)} or {@link #shutdownGracefully()} instead.
      */
     @Override
     @Deprecated
-    public List<Runnable> shutdownNow() {
+    public List<Runnable> shutdownNow() { //yangyc 关闭执行器
         shutdown();
         return Collections.emptyList();
     }
 
     @Override
-    public <V> Promise<V> newPromise() {
+    public <V> Promise<V> newPromise() { //yangyc 创建 DefaultPromise，传入自身作为 EventExecutor
         return new DefaultPromise<V>(this);
     }
 
     @Override
-    public <V> ProgressivePromise<V> newProgressivePromise() {
+    public <V> ProgressivePromise<V> newProgressivePromise() { //yangyc 创建 DefaultProgressivePromise，传入自身作为 EventExecutor
         return new DefaultProgressivePromise<V>(this);
     }
 
     @Override
-    public <V> Future<V> newSucceededFuture(V result) {
+    public <V> Future<V> newSucceededFuture(V result) { //yangyc 创建的 Future，传入自身作为 EventExecutor
         return new SucceededFuture<V>(this, result);
     }
 
     @Override
-    public <V> Future<V> newFailedFuture(Throwable cause) {
+    public <V> Future<V> newFailedFuture(Throwable cause) { //yangyc 创建的 Future，传入自身作为 EventExecutor
         return new FailedFuture<V>(this, cause);
     }
 
     @Override
-    public Future<?> submit(Runnable task) {
+    public Future<?> submit(Runnable task) { //yangyc 提交任务, 调用父类 AbstractExecutorService
         return (Future<?>) super.submit(task);
     }
 
     @Override
-    public <T> Future<T> submit(Runnable task, T result) {
+    public <T> Future<T> submit(Runnable task, T result) { //yangyc 提交任务, 调用父类 AbstractExecutorService
         return (Future<T>) super.submit(task, result);
     }
 
     @Override
-    public <T> Future<T> submit(Callable<T> task) {
+    public <T> Future<T> submit(Callable<T> task) { //yangyc 提交任务, 调用父类 AbstractExecutorService
         return (Future<T>) super.submit(task);
     }
 
     @Override
-    protected final <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value) {
+    protected final <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value) { //yangyc 创建 PromiseTask 对象
         return new PromiseTask<T>(this, runnable, value);
     }
 
     @Override
-    protected final <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
+    protected final <T> RunnableFuture<T> newTaskFor(Callable<T> callable) { //yangyc 创建 PromiseTask 对象
         return new PromiseTask<T>(this, callable);
     }
 
     @Override
     public ScheduledFuture<?> schedule(Runnable command, long delay,
-                                       TimeUnit unit) {
+                                       TimeUnit unit) { //yangyc 不支持，交给子类 AbstractScheduledEventExecutor 实现
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
+    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) { //yangyc 不支持，交给子类 AbstractScheduledEventExecutor 实现
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit) {
+    public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit) { //yangyc 不支持，交给子类 AbstractScheduledEventExecutor 实现
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) {
+    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) { //yangyc 不支持，交给子类 AbstractScheduledEventExecutor 实现
         throw new UnsupportedOperationException();
     }
 
     /**
      * Try to execute the given {@link Runnable} and just log if it throws a {@link Throwable}.
      */
-    protected static void safeExecute(Runnable task) {
+    protected static void safeExecute(Runnable task) { //yangyc  静态方法，安全的执行任务
         try {
             task.run();
         } catch (Throwable t) {
-            logger.warn("A task raised an exception. Task: {}", task, t);
+            logger.warn("A task raised an exception. Task: {}", task, t); //yangyc safe: 当任务执行发生异常时，仅仅打印告警日志。
         }
     }
 

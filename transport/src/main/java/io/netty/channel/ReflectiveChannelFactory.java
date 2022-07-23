@@ -24,11 +24,11 @@ import java.lang.reflect.Constructor;
 /**
  * A {@link ChannelFactory} that instantiates a new {@link Channel} by invoking its default constructor reflectively.
  */
-public class ReflectiveChannelFactory<T extends Channel> implements ChannelFactory<T> {
+public class ReflectiveChannelFactory<T extends Channel> implements ChannelFactory<T> { //yangyc 实现 ChannelFactory 接口
 
-    private final Constructor<? extends T> constructor;
+    private final Constructor<? extends T> constructor; //yangyc 反射调用默认构造方法，创建 Channel 对象的工厂实现类
 
-    public ReflectiveChannelFactory(Class<? extends T> clazz) {
+    public ReflectiveChannelFactory(Class<? extends T> clazz) { //yangyc 传个 class，以便于拿到channel类构造方法并缓存，以后就可以基于这个构造方法newChannel
         ObjectUtil.checkNotNull(clazz, "clazz");
         try {
             this.constructor = clazz.getConstructor();
@@ -41,7 +41,7 @@ public class ReflectiveChannelFactory<T extends Channel> implements ChannelFacto
     @Override
     public T newChannel() {
         try {
-            return constructor.newInstance();
+            return constructor.newInstance(); //yangyc-main 反射调用默认构造方法，创建 Channel 对象。 [ServerBoostrap--NioServerSocketChannel()]
         } catch (Throwable t) {
             throw new ChannelException("Unable to create Channel from class " + constructor.getDeclaringClass(), t);
         }

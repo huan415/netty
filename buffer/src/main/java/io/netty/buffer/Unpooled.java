@@ -691,13 +691,13 @@ public final class Unpooled {
      * @deprecated Use {@link ByteBuf#asReadOnly()}.
      */
     @Deprecated
-    public static ByteBuf unmodifiableBuffer(ByteBuf buffer) {
+    public static ByteBuf unmodifiableBuffer(ByteBuf buffer) { //yangyc 转化成只读 Buffer 对象；和原 ByteBuf 对象，共享 readerIndex 和 writerIndex 索引，以及相关的数据
         ByteOrder endianness = buffer.order();
-        if (endianness == BIG_ENDIAN) {
+        if (endianness == BIG_ENDIAN) { //yangyc 大端
             return new ReadOnlyByteBuf(buffer);
         }
 
-        return new ReadOnlyByteBuf(buffer.order(BIG_ENDIAN)).order(LITTLE_ENDIAN);
+        return new ReadOnlyByteBuf(buffer.order(BIG_ENDIAN)).order(LITTLE_ENDIAN);  //yangyc 小端
     }
 
     /**

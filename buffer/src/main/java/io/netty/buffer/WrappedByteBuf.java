@@ -37,9 +37,9 @@ import java.nio.charset.Charset;
  * indices on the fly because of internal optimizations made by {@link ByteBufUtil#writeAscii(ByteBuf, CharSequence)}
  * and {@link ByteBufUtil#writeUtf8(ByteBuf, CharSequence)}.
  */
-class WrappedByteBuf extends ByteBuf {
+class WrappedByteBuf extends ByteBuf { //yangyc 用于装饰 ByteBuf 对象
 
-    protected final ByteBuf buf;
+    protected final ByteBuf buf; //yangyc 被装饰的 ByteBuf 对象
 
     protected WrappedByteBuf(ByteBuf buf) {
         this.buf = ObjectUtil.checkNotNull(buf, "buf");

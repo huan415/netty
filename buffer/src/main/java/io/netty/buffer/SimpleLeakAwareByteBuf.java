@@ -22,15 +22,15 @@ import io.netty.util.internal.ObjectUtil;
 
 import java.nio.ByteOrder;
 
-class SimpleLeakAwareByteBuf extends WrappedByteBuf {
+class SimpleLeakAwareByteBuf extends WrappedByteBuf { //yangyc Simple 级别的 LeakAware ByteBuf 实现类
 
     /**
      * This object's is associated with the {@link ResourceLeakTracker}. When {@link ResourceLeakTracker#close(Object)}
      * is called this object will be used as the argument. It is also assumed that this object is used when
      * {@link ResourceLeakDetector#track(Object)} is called to create {@link #leak}.
      */
-    private final ByteBuf trackedByteBuf;
-    final ResourceLeakTracker<ByteBuf> leak;
+    private final ByteBuf trackedByteBuf; //yangyc 关联的 ByteBuf 对象
+    final ResourceLeakTracker<ByteBuf> leak; //yangyc ResourceLeakTracker 对象
 
     SimpleLeakAwareByteBuf(ByteBuf wrapped, ByteBuf trackedByteBuf, ResourceLeakTracker<ByteBuf> leak) {
         super(wrapped);
@@ -44,7 +44,7 @@ class SimpleLeakAwareByteBuf extends WrappedByteBuf {
 
     @Override
     public ByteBuf slice() {
-        return newSharedLeakAwareByteBuf(super.slice());
+        return newSharedLeakAwareByteBuf(super.slice());  //yangyc 装饰成 LeakAware 的 ByteBuf 对象
     }
 
     @Override
@@ -162,7 +162,7 @@ class SimpleLeakAwareByteBuf extends WrappedByteBuf {
         return buf;
     }
 
-    private SimpleLeakAwareByteBuf newSharedLeakAwareByteBuf(
+    private SimpleLeakAwareByteBuf newSharedLeakAwareByteBuf( //yangyc 装饰成 LeakAware 的 ByteBuf 对象
             ByteBuf wrapped) {
         return newLeakAwareByteBuf(wrapped, trackedByteBuf, leak);
     }

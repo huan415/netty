@@ -26,7 +26,7 @@ import io.netty.util.internal.UnstableApi;
  * requested.
  */
 @UnstableApi
-public final class PreferHeapByteBufAllocator implements ByteBufAllocator {
+public final class PreferHeapByteBufAllocator implements ByteBufAllocator { //yangyc 倾向创建 Heap ByteBuf 的分配器
     private final ByteBufAllocator allocator;
 
     public PreferHeapByteBufAllocator(ByteBufAllocator allocator) {

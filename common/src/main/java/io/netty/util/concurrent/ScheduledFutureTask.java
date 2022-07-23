@@ -25,13 +25,13 @@ import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("ComparableImplementedButEqualsNotOverridden")
 final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFuture<V>, PriorityQueueNode {
-    private static final long START_TIME = System.nanoTime();
+    private static final long START_TIME = System.nanoTime(); //yangyc 定时任务时间起点，基于 START_TIME 做相对时间
 
-    static long nanoTime() {
+    static long nanoTime() { //yangyc 当前时间,相对 START_TIME 来算的
         return System.nanoTime() - START_TIME;
     }
 
-    static long deadlineNanos(long delay) {
+    static long deadlineNanos(long delay) { //yangyc 任务执行时间,相对 START_TIME 来算的，delay:延迟时间
         long deadlineNanos = nanoTime() + delay;
         // Guard against overflow
         return deadlineNanos < 0 ? Long.MAX_VALUE : deadlineNanos;
@@ -42,13 +42,13 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
     }
 
     // set once when added to priority queue
-    private long id;
+    private long id; //yangyc 任务编号
 
-    private long deadlineNanos;
-    /* 0 - no repeat, >0 - repeat at fixed rate, <0 - repeat with fixed delay */
-    private final long periodNanos;
+    private long deadlineNanos; //yangyc 任务执行时间，即到了该时间，该任务就会被执行
+    /* 0 - no repeat, >0 - repeat at fixed rate, <0 - repeat with fixed delay */ //yangyc =0:只执行一次; >0:按照计划执行时间计算; <0:按照实际执行时间计算
+    private final long periodNanos; //yangyc 任务执行周期
 
-    private int queueIndex = INDEX_NOT_IN_QUEUE;
+    private int queueIndex = INDEX_NOT_IN_QUEUE;  //yangyc 队列编号
 
     ScheduledFutureTask(AbstractScheduledEventExecutor executor,
             Runnable runnable, long nanoTime) {
@@ -114,7 +114,7 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
         }
     }
 
-    public long delayNanos() {
+    public long delayNanos() { //yangyc 距离当前时间，还要多久可执行。若为负数，直接返回 0
         return deadlineToDelayNanos(deadlineNanos());
     }
 
@@ -122,7 +122,7 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
         return deadlineNanos == 0L ? 0L : Math.max(0L, deadlineNanos - nanoTime());
     }
 
-    public long delayNanos(long currentTimeNanos) {
+    public long delayNanos(long currentTimeNanos) { //yangyc 距离指定时间，还要多久可执行。若为负数，直接返回 0
         return deadlineNanos == 0L ? 0L
                 : Math.max(0L, deadlineNanos() - (currentTimeNanos - START_TIME));
     }
@@ -133,7 +133,7 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
     }
 
     @Override
-    public int compareTo(Delayed o) {
+    public int compareTo(Delayed o) { //yangyc 优先级队列排序 --- 按照 deadlineNanos、id 属性升序排序
         if (this == o) {
             return 0;
         }
@@ -165,29 +165,29 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
                 }
                 return;
             }
-            if (periodNanos == 0) {
-                if (setUncancellableInternal()) {
-                    V result = runTask();
-                    setSuccessInternal(result);
+            if (periodNanos == 0) { //yangyc 执行周期为: 只执行一次
+                if (setUncancellableInternal()) { //yangyc 设置任务不可取消
+                    V result = runTask(); //yangyc 执行任务
+                    setSuccessInternal(result); //yangyc 通知任务执行成功 --- 回调通知注册在定时任务上的监听器
                 }
-            } else {
+            } else { //yangyc 执行周期为: 固定周期
                 // check if is done as it may was cancelled
-                if (!isCancelled()) {
-                    runTask();
+                if (!isCancelled()) {  //yangyc 判断任务并未取消
+                    runTask(); //yangyc 执行任务
                     if (!executor().isShutdown()) {
                         if (periodNanos > 0) {
-                            deadlineNanos += periodNanos;
+                            deadlineNanos += periodNanos; //yangyc 计算下次执行时间
                         } else {
-                            deadlineNanos = nanoTime() - periodNanos;
+                            deadlineNanos = nanoTime() - periodNanos; //yangyc 计算下次执行时间
                         }
-                        if (!isCancelled()) {
-                            scheduledExecutor().scheduledTaskQueue().add(this);
+                        if (!isCancelled()) { //yangyc 判断任务并未取消
+                            scheduledExecutor().scheduledTaskQueue().add(this); //yangyc 重新添加到任务队列，等待下次定时执行
                         }
                     }
                 }
             }
         } catch (Throwable cause) {
-            setFailureInternal(cause);
+            setFailureInternal(cause); //yangyc 发生异常，通知任务执行失败
         }
     }
 
@@ -201,15 +201,15 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
      * @param mayInterruptIfRunning this value has no effect in this implementation.
      */
     @Override
-    public boolean cancel(boolean mayInterruptIfRunning) {
+    public boolean cancel(boolean mayInterruptIfRunning) { //yangyc 取消定时任务 --- 从定时任务队列移除自己
         boolean canceled = super.cancel(mayInterruptIfRunning);
         if (canceled) {
-            scheduledExecutor().removeScheduled(this);
+            scheduledExecutor().removeScheduled(this); //yangyc 取消成功，从定时任务队列移除自己
         }
         return canceled;
     }
 
-    boolean cancelWithoutRemove(boolean mayInterruptIfRunning) {
+    boolean cancelWithoutRemove(boolean mayInterruptIfRunning) { //yangyc 取消定时任务
         return super.cancel(mayInterruptIfRunning);
     }
 
@@ -227,11 +227,11 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
 
     @Override
     public int priorityQueueIndex(DefaultPriorityQueue<?> queue) {
-        return queueIndex;
+        return queueIndex; //yangyc 获得 queueIndex 属性
     }
 
     @Override
     public void priorityQueueIndex(DefaultPriorityQueue<?> queue, int i) {
-        queueIndex = i;
+        queueIndex = i; //yangyc 设置 queueIndex 属性
     }
 }

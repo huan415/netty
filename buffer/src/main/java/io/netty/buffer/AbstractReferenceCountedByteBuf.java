@@ -26,7 +26,7 @@ import io.netty.util.internal.ReferenceCountUpdater;
 public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
     private static final long REFCNT_FIELD_OFFSET =
             ReferenceCountUpdater.getUnsafeOffset(AbstractReferenceCountedByteBuf.class, "refCnt");
-    private static final AtomicIntegerFieldUpdater<AbstractReferenceCountedByteBuf> AIF_UPDATER =
+    private static final AtomicIntegerFieldUpdater<AbstractReferenceCountedByteBuf> AIF_UPDATER = //yangyc refCnt 的更新器
             AtomicIntegerFieldUpdater.newUpdater(AbstractReferenceCountedByteBuf.class, "refCnt");
 
     private static final ReferenceCountUpdater<AbstractReferenceCountedByteBuf> updater =
@@ -43,10 +43,10 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
 
     // Value might not equal "real" reference count, all access should be via the updater
     @SuppressWarnings({"unused", "FieldMayBeFinal"})
-    private volatile int refCnt = updater.initialValue();
+    private volatile int refCnt = updater.initialValue(); //yangyc 为什不使用 AtomicInteger, 因为 ByteBuf 对象很多，如果都把 int 包一层 AtomicInteger 花销较大，而AtomicIntegerFieldUpdater 只需要一个全局的静态变量
 
     protected AbstractReferenceCountedByteBuf(int maxCapacity) {
-        super(maxCapacity);
+        super(maxCapacity); //yangyc 设置最大容量
     }
 
     @Override
@@ -65,13 +65,13 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
      * An unsafe operation intended for use by a subclass that sets the reference count of the buffer directly
      */
     protected final void setRefCnt(int refCnt) {
-        updater.setRefCnt(this, refCnt);
+        updater.setRefCnt(this, refCnt); //yangyc 直接修改 refCnt
     }
 
     /**
      * An unsafe operation intended for use by a subclass that resets the reference count of the buffer to 1
      */
-    protected final void resetRefCnt() {
+    protected final void resetRefCnt() { //yangyc 设置引用数量为 0
         updater.resetRefCnt(this);
     }
 

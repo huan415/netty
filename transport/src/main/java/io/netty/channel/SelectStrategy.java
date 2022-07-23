@@ -22,17 +22,17 @@ import io.netty.util.IntSupplier;
  *
  * Provides the ability to control the behavior of the select loop. For example a blocking select
  * operation can be delayed or skipped entirely if there are events to process immediately.
- */
-public interface SelectStrategy {
+ */ //yangyc >= 0 ，表示不需要 select ，目前已经有可以执行的任务了
+public interface SelectStrategy { //yangyc 实现类 DefaultSelectStrategy
 
     /**
      * Indicates a blocking select should follow.
      */
-    int SELECT = -1;
+    int SELECT = -1; //yangyc 使用阻塞 select 的策略
     /**
      * Indicates the IO loop should be retried, no blocking select to follow directly.
      */
-    int CONTINUE = -2;
+    int CONTINUE = -2; //yangyc 需要进行重试的策略
     /**
      * Indicates the IO loop to poll for new events without blocking.
      */

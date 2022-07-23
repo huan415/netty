@@ -431,12 +431,12 @@ final class UnsafeByteBufUtil {
         PlatformDependent.setMemory(array, index, length, ZERO);
     }
 
-    static ByteBuf copy(AbstractByteBuf buf, long addr, int index, int length) {
+    static ByteBuf copy(AbstractByteBuf buf, long addr, int index, int length) { //yangyc 复制指定范围的数据到新创建的 Direct ByteBuf 对象
         buf.checkIndex(index, length);
-        ByteBuf copy = buf.alloc().directBuffer(length, buf.maxCapacity());
+        ByteBuf copy = buf.alloc().directBuffer(length, buf.maxCapacity()); //yangyc 创建 Direct ByteBuffer 对象
         if (length != 0) {
             if (copy.hasMemoryAddress()) {
-                PlatformDependent.copyMemory(addr, copy.memoryAddress(), length);
+                PlatformDependent.copyMemory(addr, copy.memoryAddress(), length);  //yangyc 使用 Unsafe 操作来复制
                 copy.setIndex(0, length);
             } else {
                 copy.writeBytes(buf, index, length);

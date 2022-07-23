@@ -22,51 +22,51 @@ package io.netty.util.concurrent;
  * way to access methods.
  *
  */
-public interface EventExecutor extends EventExecutorGroup {
+public interface EventExecutor extends EventExecutorGroup { //yangyc 事件执行器接口
 
     /**
      * Returns a reference to itself.
      */
     @Override
-    EventExecutor next();
+    EventExecutor next(); //yangyc 返回自己
 
     /**
      * Return the {@link EventExecutorGroup} which is the parent of this {@link EventExecutor},
      */
-    EventExecutorGroup parent();
+    EventExecutorGroup parent(); //yangyc 返回所属的 EventExecutorGroup
 
     /**
      * Calls {@link #inEventLoop(Thread)} with {@link Thread#currentThread()} as argument
      */
-    boolean inEventLoop();
+    boolean inEventLoop(); //yangyc 当前线程是否在 EventLoop 线程中
 
     /**
      * Return {@code true} if the given {@link Thread} is executed in the event loop,
      * {@code false} otherwise.
      */
-    boolean inEventLoop(Thread thread);
+    boolean inEventLoop(Thread thread); //yangyc 指定线程是否是 EventLoop 线程
 
     /**
      * Return a new {@link Promise}.
      */
-    <V> Promise<V> newPromise();
+    <V> Promise<V> newPromise(); //yangyc 创建一个 Promise 对象
 
     /**
      * Create a new {@link ProgressivePromise}.
      */
-    <V> ProgressivePromise<V> newProgressivePromise();
+    <V> ProgressivePromise<V> newProgressivePromise(); //yangyc 创建一个 ProgressivePromise 对象
 
     /**
      * Create a new {@link Future} which is marked as succeeded already. So {@link Future#isSuccess()}
      * will return {@code true}. All {@link FutureListener} added to it will be notified directly. Also
      * every call of blocking methods will just return without blocking.
      */
-    <V> Future<V> newSucceededFuture(V result);
+    <V> Future<V> newSucceededFuture(V result);  //yangyc 创建成功结果的 Future 对象
 
     /**
      * Create a new {@link Future} which is marked as failed already. So {@link Future#isSuccess()}
      * will return {@code false}. All {@link FutureListener} added to it will be notified directly. Also
      * every call of blocking methods will just return without blocking.
      */
-    <V> Future<V> newFailedFuture(Throwable cause);
+    <V> Future<V> newFailedFuture(Throwable cause); //yangyc 创建异常的 Future 对象
 }

@@ -86,7 +86,7 @@ import io.netty.util.concurrent.EventExecutor;
  */
 public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvoker, ChannelOutboundInvoker {
 
-    /**
+    /** yangyc ===============Context 相关==========================
      * Return the {@link Channel} which is bound to the {@link ChannelHandlerContext}.
      */
     Channel channel();
@@ -114,7 +114,7 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
      * {@link EventLoop}.
      */
     boolean isRemoved();
-
+    //yangyc ===============ChannelInboundInvoker  相关==========================
     @Override
     ChannelHandlerContext fireChannelRegistered();
 
@@ -141,24 +141,24 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
 
     @Override
     ChannelHandlerContext fireChannelWritabilityChanged();
-
+    //yangyc ===============ChannelOutboundInvoker  相关==========================
     @Override
     ChannelHandlerContext read();
 
     @Override
-    ChannelHandlerContext flush();
+    ChannelHandlerContext flush(); //yangyc 刷新内存队列，将其中的数据写入到对端
 
     /**
      * Return the assigned {@link ChannelPipeline}
      */
     ChannelPipeline pipeline();
 
-    /**
+    /** yangyc ===============ByteBuf 相关==========================
      * Return the assigned {@link ByteBufAllocator} which will be used to allocate {@link ByteBuf}s.
      */
     ByteBufAllocator alloc();
 
-    /**
+    /** yangyc ===============AttributeMap  相关==========================
      * @deprecated Use {@link Channel#attr(AttributeKey)}
      */
     @Deprecated

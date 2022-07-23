@@ -20,7 +20,7 @@ import io.netty.util.internal.ObjectPool.Handle;
 import io.netty.util.internal.ObjectPool.ObjectCreator;
 import io.netty.util.internal.PlatformDependent;
 
-final class PooledUnsafeHeapByteBuf extends PooledHeapByteBuf {
+final class PooledUnsafeHeapByteBuf extends PooledHeapByteBuf { //yangyc 在 PooledHeapByteBuf 基础上，基于 Unsafe 的可重用 ByteBuf 实现类
 
     private static final ObjectPool<PooledUnsafeHeapByteBuf> RECYCLER = ObjectPool.newPool(
             new ObjectCreator<PooledUnsafeHeapByteBuf>() {

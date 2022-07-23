@@ -18,7 +18,7 @@ package io.netty.util.concurrent;
 /**
  * Expose details for a {@link Thread}.
  */
-public interface ThreadProperties {
+public interface ThreadProperties { //yangyc 线程属性接口, 实现类 DefaultThreadProperties（SingleThreadEventExecutor的内部类）
     /**
      * @see Thread#getState()
      */

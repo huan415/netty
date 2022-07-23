@@ -21,9 +21,9 @@ import java.nio.channels.Selector;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.Set;
 
-final class SelectedSelectionKeySetSelector extends Selector {
-    private final SelectedSelectionKeySet selectionKeys;
-    private final Selector delegate;
+final class SelectedSelectionKeySetSelector extends Selector { //yangyc 基于 Netty SelectedSelectionKeySet 作为 selectionKeys 的 Selector 实现类
+    private final SelectedSelectionKeySet selectionKeys; //yangyc SelectedSelectionKeySet 对象
+    private final Selector delegate; //yangyc 原始 Java NIO Selector 对象
 
     SelectedSelectionKeySetSelector(Selector delegate, SelectedSelectionKeySet selectionKeys) {
         this.delegate = delegate;
@@ -52,29 +52,29 @@ final class SelectedSelectionKeySetSelector extends Selector {
 
     @Override
     public int selectNow() throws IOException {
-        selectionKeys.reset();
-        return delegate.selectNow();
+        selectionKeys.reset(); //yangyc 重置 selectionKeys，每次 select 之后，都是新的已 select 的 NIO SelectionKey 集合
+        return delegate.selectNow(); //yangyc 基于 Java NIO Selector 对应的方法
     }
 
     @Override
     public int select(long timeout) throws IOException {
-        selectionKeys.reset();
-        return delegate.select(timeout);
+        selectionKeys.reset(); //yangyc 重置 selectionKeys，每次 select 之后，都是新的已 select 的 NIO SelectionKey 集合
+        return delegate.select(timeout); //yangyc 基于 Java NIO Selector 对应的方法
     }
 
     @Override
     public int select() throws IOException {
-        selectionKeys.reset();
-        return delegate.select();
+        selectionKeys.reset(); //yangyc 重置 selectionKeys，每次 select 之后，都是新的已 select 的 NIO SelectionKey 集合
+        return delegate.select(); //yangyc 基于 Java NIO Selector 对应的方法
     }
 
     @Override
     public Selector wakeup() {
-        return delegate.wakeup();
+        return delegate.wakeup(); //yangyc 基于 Java NIO Selector 对应的方法
     }
 
     @Override
     public void close() throws IOException {
-        delegate.close();
+        delegate.close(); //yangyc 基于 Java NIO Selector 对应的方法
     }
 }

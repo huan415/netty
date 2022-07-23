@@ -65,25 +65,25 @@ final class PoolThreadCache {
 
     PoolThreadCache(PoolArena<byte[]> heapArena, PoolArena<ByteBuffer> directArena,
                     int smallCacheSize, int normalCacheSize, int maxCachedBufferCapacity,
-                    int freeSweepAllocationThreshold) {
+                    int freeSweepAllocationThreshold) { //yangyc 创建归属当前线程的 cache 对象；参数1:heapArena; 参数2：directArena; 参数3：smallCacheSize； 参数4：normalCacheSize；参数5：32k；参数6: 8192
         checkPositiveOrZero(maxCachedBufferCapacity, "maxCachedBufferCapacity");
-        this.freeSweepAllocationThreshold = freeSweepAllocationThreshold;
-        this.heapArena = heapArena;
+        this.freeSweepAllocationThreshold = freeSweepAllocationThreshold; //yangyc 8192; 当使用 PoolThreadCache get 8192次之后，会进行一次主动清理空闲内存的逻辑，将缓存的内存位置信息归还给 PoolAlloctor
+        this.heapArena = heapArena; //yangyc 保存分配给当前线程的两个 arena； 注意：arena 是由多个线程共享的； 一个线程只有一个指定的direct、heap arena
         this.directArena = directArena;
-        if (directArena != null) {
-            smallSubPageDirectCaches = createSubPageCaches(
+        if (directArena != null) { //yangyc 条件一般会成立
+            smallSubPageDirectCaches = createSubPageCaches( //yangyc 创建长度为4的MemoryRegionCache数组，并且数组内每一个元素类型为 SubpageMemoryRegionCache 类型；SubpageMemoryRegionCache 包含一个固定长度256的队列。 参数1：256； 参数2：32
                     smallCacheSize, directArena.numSmallSubpagePools);
 
-            normalDirectCaches = createNormalCaches(
+            normalDirectCaches = createNormalCaches( //yangyc 创建长度为3的MoemalRegionCache数组，并且数组内每一个元素类型为 NormalMemoryRegionCache 类型；NormalMemoryRegionCache 能缓存64个内存位置信息；规格分别为8k、16k、32k。 参数1：64； 参数2：32
                     normalCacheSize, maxCachedBufferCapacity, directArena);
 
-            directArena.numThreadCaches.getAndIncrement();
+            directArena.numThreadCaches.getAndIncrement(); //yangyc 给当前 PoolThreadCache 占用的 directArena 自增使用的线程数量
         } else {
             // No directArea is configured so just null out all caches
             smallSubPageDirectCaches = null;
             normalDirectCaches = null;
         }
-        if (heapArena != null) {
+        if (heapArena != null) { //yangyc 条件一般会成立
             // Create the caches for the heap allocations
             smallSubPageHeapCaches = createSubPageCaches(
                     smallCacheSize, heapArena.numSmallSubpagePools);
@@ -107,7 +107,7 @@ final class PoolThreadCache {
         }
     }
 
-    private static <T> MemoryRegionCache<T>[] createSubPageCaches(
+    private static <T> MemoryRegionCache<T>[] createSubPageCaches( //yangyc 参数1：256； 参数2：32
             int cacheSize, int numCaches) {
         if (cacheSize > 0 && numCaches > 0) {
             @SuppressWarnings("unchecked")
@@ -123,15 +123,15 @@ final class PoolThreadCache {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> MemoryRegionCache<T>[] createNormalCaches(
+    private static <T> MemoryRegionCache<T>[] createNormalCaches( //yangyc 参数1：64； 参数2：32
             int cacheSize, int maxCachedBufferCapacity, PoolArena<T> area) {
         if (cacheSize > 0 && maxCachedBufferCapacity > 0) {
-            int max = Math.min(area.chunkSize, maxCachedBufferCapacity);
+            int max = Math.min(area.chunkSize, maxCachedBufferCapacity); //yangyc max=32k
             // Create as many normal caches as we support based on how many sizeIdx we have and what the upper
             // bound is that we want to cache in general.
             List<MemoryRegionCache<T>> cache = new ArrayList<MemoryRegionCache<T>>() ;
             for (int idx = area.numSmallSubpagePools; idx < area.nSizes && area.sizeIdx2size(idx) <= max ; idx++) {
-                cache.add(new NormalMemoryRegionCache<T>(cacheSize));
+                cache.add(new NormalMemoryRegionCache<T>(cacheSize));//yangyc 循环创建 NormalMemoryRegionCache； 并且内存队列长度为64； 表示可以缓存64个normal类型的内存位置信息
             }
             return cache.toArray(new MemoryRegionCache[0]);
         } else {

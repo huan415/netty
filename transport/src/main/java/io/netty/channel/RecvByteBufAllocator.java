@@ -31,7 +31,7 @@ public interface RecvByteBufAllocator {
      * Creates a new handle.  The handle provides the actual operations and keeps the internal information which is
      * required for predicting an optimal buffer capacity.
      */
-    Handle newHandle();
+    Handle newHandle(); //yangyc 创建一个 handler 对象， handler 作用预测下一个分配多大的 byteBuf 对象
 
     /**
      * @deprecated Use {@link ExtendedHandle}.
@@ -42,13 +42,13 @@ public interface RecvByteBufAllocator {
          * Creates a new receive buffer whose capacity is probably large enough to read all inbound data and small
          * enough not to waste its space.
          */
-        ByteBuf allocate(ByteBufAllocator alloc);
+        ByteBuf allocate(ByteBufAllocator alloc); //yangyc 分配 ByteBuf 缓存区对象接口(handle作用：预测分配大小 size)，参数alloc：真正分配内存的大佬（很重要）
 
         /**
          * Similar to {@link #allocate(ByteBufAllocator)} except that it does not allocate anything but just tells the
          * capacity.
          */
-        int guess();
+        int guess(); //yangyc 获取预测值
 
         /**
          * Reset any counters that have accumulated and recommend how many messages/bytes should be read for the next
@@ -65,7 +65,7 @@ public interface RecvByteBufAllocator {
          * Increment the number of messages that have been read for the current read loop.
          * @param numMessages The amount to increment by.
          */
-        void incMessagesRead(int numMessages);
+        void incMessagesRead(int numMessages);  //yangyc 增加已读消息数量，不是 byteSize, 而是已读次数
 
         /**
          * Set the bytes that have been read for the last read operation.
@@ -75,36 +75,36 @@ public interface RecvByteBufAllocator {
          * {@link #lastBytesRead()}. A negative value will signal a termination condition enforced externally
          * to this class and is not required to be enforced in {@link #continueReading()}.
          */
-        void lastBytesRead(int bytes);
+        void lastBytesRead(int bytes); //yangyc 最后一次从 Channel 中读取的数据量大小，这里指的是 byteSize
 
         /**
          * Get the amount of bytes for the previous read operation.
          * @return The amount of bytes for the previous read operation.
          */
-        int lastBytesRead();
+        int lastBytesRead(); //yangyc 获取最后一次从 Channel 中读取的数据量大小，这里指的是 byteSize
 
         /**
          * Set how many bytes the read operation will (or did) attempt to read.
          * @param bytes How many bytes the read operation will (or did) attempt to read.
          */
-        void attemptedBytesRead(int bytes);
+        void attemptedBytesRead(int bytes);  //yangyc 设置即将要读取的数据量或已经读取的数据量
 
         /**
          * Get how many bytes the read operation will (or did) attempt to read.
          * @return How many bytes the read operation will (or did) attempt to read.
          */
-        int attemptedBytesRead();
+        int attemptedBytesRead();  //yangyc 获取即将要读取的数据量或已经读取的数据量
 
         /**
          * Determine if the current read loop should continue.
          * @return {@code true} if the read loop should continue reading. {@code false} if the read loop is complete.
          */
-        boolean continueReading();
+        boolean continueReading(); //yangyc 判断是否继续读循环。 do...while 就是那个读循环。 NioMessageUnSafe#read() 和  NioByteUnSafe#read()
 
         /**
          * The read has completed.
          */
-        void readComplete();
+        void readComplete(); //yangyc 本次读循环结束
     }
 
     @SuppressWarnings("deprecation")

@@ -71,17 +71,18 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     /**
      * Create a new instance
-     *
+     * //yangyc 服务端：参数1：null, 参数2:JDK层面的ServerSocketChannel, 参数3:感兴趣的时间，连接事件
+     *  //yangyc 客户端 参数1：NioServerSocketChannel, 参数2：JDK 层面的 SocketChannel,参数3：感兴趣的事件
      * @param parent            the parent {@link Channel} by which this instance was created. May be {@code null}
      * @param ch                the underlying {@link SelectableChannel} on which it operates
      * @param readInterestOp    the ops to set to receive data from the {@link SelectableChannel}
      */
-    protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
-        super(parent);
-        this.ch = ch;
-        this.readInterestOp = readInterestOp;
+    protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) { //yangyc-main 初始化ServerChannel的pipeline + 设置成非阻塞
+        super(parent); //yangyc-main 调用父 AbstractNioChannel 的构造方法, 在父类里 newChannelPipeline() 初始化pipeline
+        this.ch = ch; //yangyc Netty NIO Channel 对象，持有的 Java 原生 NIO 的 Channel 对象
+        this.readInterestOp = readInterestOp; //yangyc 感兴趣的读事件的操作位值, AbstractNioMessageChannel是SelectionKey.OP_ACCEPT； AbstractNioByteChannel（NioServerSocketChannel）是SelectionKey.OP_READ
         try {
-            ch.configureBlocking(false);
+            ch.configureBlocking(false); //yangyc-main 设置成非阻塞
         } catch (IOException e) {
             try {
                 ch.close();
@@ -163,7 +164,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         if (isRegistered()) {
             EventLoop eventLoop = eventLoop();
             if (eventLoop.inEventLoop()) {
-                clearReadPending0();
+                clearReadPending0(); //yangyc 移除对“读”事件的感兴趣
             } else {
                 eventLoop.execute(clearReadPendingRunnable);
             }
@@ -217,9 +218,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             // from the EventLoop
             // See https://github.com/netty/netty/issues/2104
             if (!key.isValid()) {
-                return;
+                return; //yangyc 忽略，如果 SelectionKey 不合法，例如已经取消
             }
-            int interestOps = key.interestOps();
+            int interestOps = key.interestOps(); //yangyc 移除对“读”事件的感兴趣
             if ((interestOps & readInterestOp) != 0) {
                 // only remove readInterestOp if needed
                 key.interestOps(interestOps & ~readInterestOp);
@@ -239,24 +240,24 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             }
 
             try {
-                if (connectPromise != null) {
+                if (connectPromise != null) { //yangyc 目前有正在连接远程地址的 ChannelPromise ，则直接抛出异常，禁止同时发起多个连接
                     // Already a connect in process.
                     throw new ConnectionPendingException();
                 }
 
-                boolean wasActive = isActive();
-                if (doConnect(remoteAddress, localAddress)) {
+                boolean wasActive = isActive(); //yangyc 记录 Channel 是否激活
+                if (doConnect(remoteAddress, localAddress)) { //yangyc 执行连接远程地址
                     fulfillConnectPromise(promise, wasActive);
                 } else {
-                    connectPromise = promise;
-                    requestedRemoteAddress = remoteAddress;
+                    connectPromise = promise; //yangyc 记录 connectPromise
+                    requestedRemoteAddress = remoteAddress; //yangyc 记录 requestedRemoteAddress
 
                     // Schedule connect timeout.
                     int connectTimeoutMillis = config().getConnectTimeoutMillis();
-                    if (connectTimeoutMillis > 0) {
+                    if (connectTimeoutMillis > 0) { //yangyc 使用 EventLoop 发起定时任务，监听连接远程地址超时。若连接超时，则回调通知 connectPromise 超时异常
                         connectTimeoutFuture = eventLoop().schedule(new Runnable() {
                             @Override
-                            public void run() {
+                            public void run() { //yangyc 监听连接远程地址是否超时。若连接超时，则回调通知 connectPromise 超时异常
                                 ChannelPromise connectPromise = AbstractNioChannel.this.connectPromise;
                                 if (connectPromise != null && !connectPromise.isDone()
                                         && connectPromise.tryFailure(new ConnectTimeoutException(
@@ -269,19 +270,19 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
                     promise.addListener(new ChannelFutureListener() {
                         @Override
-                        public void operationComplete(ChannelFuture future) throws Exception {
-                            if (future.isCancelled()) {
+                        public void operationComplete(ChannelFuture future) throws Exception { //yangyc 添加监听器，监听连接远程地址取消。
+                            if (future.isCancelled()) { //yangyc 若取消，则取消 connectTimeoutFuture 任务，并置空 connectPromise
                                 if (connectTimeoutFuture != null) {
-                                    connectTimeoutFuture.cancel(false);
+                                    connectTimeoutFuture.cancel(false); //yangyc 取消定时任务
                                 }
-                                connectPromise = null;
+                                connectPromise = null;  //yangyc 置空 connectPromise
                                 close(voidPromise());
                             }
                         }
                     });
                 }
             } catch (Throwable t) {
-                promise.tryFailure(annotateConnectException(t, remoteAddress));
+                promise.tryFailure(annotateConnectException(t, remoteAddress)); //yangyc 回调通知 promise 发生异常
                 closeIfClosed();
             }
         }
@@ -294,15 +295,15 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
             // Get the state as trySuccess() may trigger an ChannelFutureListener that will close the Channel.
             // We still need to ensure we call fireChannelActive() in this case.
-            boolean active = isActive();
+            boolean active = isActive(); //yangyc 获得 Channel 是否激活
 
             // trySuccess() will return false if a user cancelled the connection attempt.
-            boolean promiseSet = promise.trySuccess();
+            boolean promiseSet = promise.trySuccess(); //yangyc 回调通知 promise 执行成功
 
             // Regardless if the connection attempt was cancelled, channelActive() event should be triggered,
             // because what happened is what happened.
-            if (!wasActive && active) {
-                pipeline().fireChannelActive();
+            if (!wasActive && active) { //yangyc Channel 新激活的
+                pipeline().fireChannelActive(); //yangyc 若 Channel 是新激活的，触发通知 Channel 已激活的事件。
             }
 
             // If a user cancelled the connection attempt, close the channel, which is followed by channelInactive().
@@ -327,21 +328,21 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             // Note this method is invoked by the event loop only if the connection attempt was
             // neither cancelled nor timed out.
 
-            assert eventLoop().inEventLoop();
+            assert eventLoop().inEventLoop(); //yangyc 判断是否在 EventLoop 的线程中。
 
             try {
-                boolean wasActive = isActive();
-                doFinishConnect();
-                fulfillConnectPromise(connectPromise, wasActive);
+                boolean wasActive = isActive(); //yangyc 获得 Channel 是否激活
+                doFinishConnect(); //yangyc 执行完成连接
+                fulfillConnectPromise(connectPromise, wasActive); //yangyc 通知 connectPromise 连接完成
             } catch (Throwable t) {
-                fulfillConnectPromise(connectPromise, annotateConnectException(t, requestedRemoteAddress));
+                fulfillConnectPromise(connectPromise, annotateConnectException(t, requestedRemoteAddress));  //yangyc 通知 connectPromise 连接异常
             } finally {
                 // Check for null as the connectTimeoutFuture is only created if a connectTimeoutMillis > 0 is used
                 // See https://github.com/netty/netty/issues/1770
                 if (connectTimeoutFuture != null) {
-                    connectTimeoutFuture.cancel(false);
+                    connectTimeoutFuture.cancel(false); //yangyc 取消 connectTimeoutFuture 任务
                 }
-                connectPromise = null;
+                connectPromise = null;   //yangyc 置空 connectPromise
             }
         }
 
@@ -373,11 +374,11 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     }
 
     @Override
-    protected void doRegister() throws Exception {
+    protected void doRegister() throws Exception { //yangyc-main 执行注册逻辑 注册 Java 原生 NIO 的 Channel 对象到 Selector 对象上。
         boolean selected = false;
         for (;;) {
-            try {
-                selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
+            try { //yangyc javaChannel() 返回 JDK 层面的 channel, 有可能是 ServerSocketChannel/SocketChannel
+                selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this); //yangyc-main 参数1：JDK层面的多路复用器，参数2：ops 当前感兴趣的事件，参数3：att附件，可以拿到netty层面的对象，NioServerSocketChannel/ServerSocketChannel
                 return;
             } catch (CancelledKeyException e) {
                 if (!selected) {
@@ -411,7 +412,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
-            selectionKey.interestOps(interestOps | readInterestOp);
+            selectionKey.interestOps(interestOps | readInterestOp); //yangyc 添加为感兴趣的事件 ---- 连接事件 readInterestOp = SelectionKey.OP_ACCEPT
         }
     }
 
@@ -431,18 +432,18 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      * but just returns the original {@link ByteBuf}..
      */
     protected final ByteBuf newDirectBuffer(ByteBuf buf) {
-        final int readableBytes = buf.readableBytes();
+        final int readableBytes = buf.readableBytes(); //yangyc 获取当前ByteBuf可读数据量
         if (readableBytes == 0) {
             ReferenceCountUtil.safeRelease(buf);
             return Unpooled.EMPTY_BUFFER;
         }
-
-        final ByteBufAllocator alloc = alloc();
-        if (alloc.isDirectBufferPooled()) {
-            ByteBuf directBuf = alloc.directBuffer(readableBytes);
-            directBuf.writeBytes(buf, buf.readerIndex(), readableBytes);
-            ReferenceCountUtil.safeRelease(buf);
-            return directBuf;
+        //yangyc 执行到这里，说明ByteBuf内有有效数据
+        final ByteBufAllocator alloc = alloc(); //yanyc alloc 内存分配器 PooledByteBufAllocator
+        if (alloc.isDirectBufferPooled()) { //yangyc 正常情况下条件成立
+            ByteBuf directBuf = alloc.directBuffer(readableBytes); //yangyc 根据可读数据量，使用内存分配器分配一块指定大小的堆外内存ByteBuf对象
+            directBuf.writeBytes(buf, buf.readerIndex(), readableBytes); //yangyc 将堆内ByteBuf数据拷贝到堆外ByteBuf对象
+            ReferenceCountUtil.safeRelease(buf); //yangyc 释放堆内ByteBuf占用的内存
+            return directBuf; //yangyc 返回堆外ByteBuf
         }
 
         final ByteBuf directBuf = ByteBufUtil.threadLocalDirectBuffer();

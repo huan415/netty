@@ -30,12 +30,12 @@ import java.util.concurrent.ThreadFactory;
  * Abstract base class for {@link EventLoop}s that execute all its submitted tasks in a single thread.
  *
  */
-public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor implements EventLoop {
+public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor implements EventLoop { //yangyc 基于单线程的 EventLoop 抽象类，主要增加了 Channel 注册到 EventLoop 上
 
     protected static final int DEFAULT_MAX_PENDING_TASKS = Math.max(16,
-            SystemPropertyUtil.getInt("io.netty.eventLoop.maxPendingTasks", Integer.MAX_VALUE));
+            SystemPropertyUtil.getInt("io.netty.eventLoop.maxPendingTasks", Integer.MAX_VALUE)); //yangyc 默认任务队列最大数量
 
-    private final Queue<Runnable> tailTasks;
+    private final Queue<Runnable> tailTasks; //yangyc 尾部任务队列，执行在 taskQueue 之后
 
     protected SingleThreadEventLoop(EventLoopGroup parent, ThreadFactory threadFactory, boolean addTaskWakesUp) {
         this(parent, threadFactory, addTaskWakesUp, DEFAULT_MAX_PENDING_TASKS, RejectedExecutionHandlers.reject());
@@ -62,29 +62,29 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
     protected SingleThreadEventLoop(EventLoopGroup parent, Executor executor,
                                     boolean addTaskWakesUp, Queue<Runnable> taskQueue, Queue<Runnable> tailTaskQueue,
                                     RejectedExecutionHandler rejectedExecutionHandler) {
-        super(parent, executor, addTaskWakesUp, taskQueue, rejectedExecutionHandler);
+        super(parent, executor, addTaskWakesUp, taskQueue, rejectedExecutionHandler); //yangyc 参数1：NioEventLoopGroup,参数2：ThreadPerTaskExecutor每个任务的线程执行器(创建线程并执行)，参数3:addTaskWakesUp，参数4：一个queue实例，参数5:拒绝策略
         tailTasks = ObjectUtil.checkNotNull(tailTaskQueue, "tailTaskQueue");
     }
 
     @Override
-    public EventLoopGroup parent() {
+    public EventLoopGroup parent() { //yangyc 所属 EventLoopGroup --- 覆盖父类方法
         return (EventLoopGroup) super.parent();
     }
 
     @Override
-    public EventLoop next() {
+    public EventLoop next() { //yangyc 获得自己
         return (EventLoop) super.next();
     }
 
     @Override
-    public ChannelFuture register(Channel channel) {
-        return register(new DefaultChannelPromise(channel, this));
+    public ChannelFuture register(Channel channel) { //yangyc 注册 Channel 到 EventLoop 上
+        return register(new DefaultChannelPromise(channel, this)); //yangyc DefaultChannelPromise 类似于Future, 支持添加监听器，当关联事件完成之后，回调监听者
     }
 
     @Override
-    public ChannelFuture register(final ChannelPromise promise) {
-        ObjectUtil.checkNotNull(promise, "promise");
-        promise.channel().unsafe().register(this, promise);
+    public ChannelFuture register(final ChannelPromise promise) { //yangyc 注册 Channel 到 EventLoop 上
+        ObjectUtil.checkNotNull(promise, "promise"); //yangyc 服务端：channel()=>NioServerSocketChannel,unsafe()=>NioMessageUnsafe,最后调用 NioMessageUnsafe#register()       客户端：channel()=>NioSocketChannel,unsafe()=>NioByteUnsafe,最后调用 NioByteUnsafe#register()
+        promise.channel().unsafe().register(this, promise); //yangyc  参数1:NioEventLoop单线程线程池，参数2:promise结果封装...外部可以注册监听进行操作； 返回 ChannelPromise 对象
         return promise;
     }
 
@@ -103,18 +103,18 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
      * @param task to be added.
      */
     @UnstableApi
-    public final void executeAfterEventLoopIteration(Runnable task) {
+    public final void executeAfterEventLoopIteration(Runnable task) { //yangyc 执行一个任务
         ObjectUtil.checkNotNull(task, "task");
-        if (isShutdown()) {
+        if (isShutdown()) { //yangyc 关闭时，拒绝任务
             reject();
         }
 
-        if (!tailTasks.offer(task)) {
-            reject(task);
+        if (!tailTasks.offer(task)) { //yangyc 添加到任务队列
+            reject(task);  //yangyc 添加失败，则拒绝任务
         }
 
-        if (!(task instanceof LazyRunnable) && wakesUpForTask(task)) {
-            wakeup(inEventLoop());
+        if (!(task instanceof LazyRunnable) && wakesUpForTask(task)) { //yangyc SingleThreadEventLoop 重写了 #wakesUpForTask(Runnable task) 方法
+            wakeup(inEventLoop()); //yangyc 唤醒线程
         }
     }
 
@@ -126,22 +126,22 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
      * @return {@code true} if the task was removed as a result of this call.
      */
     @UnstableApi
-    final boolean removeAfterEventLoopIterationTask(Runnable task) {
+    final boolean removeAfterEventLoopIterationTask(Runnable task) { //yangyc 移除指定任务
         return tailTasks.remove(ObjectUtil.checkNotNull(task, "task"));
     }
 
     @Override
-    protected void afterRunningAllTasks() {
-        runAllTasksFrom(tailTasks);
+    protected void afterRunningAllTasks() { //yangyc 在运行完所有任务后，执行 tailTasks 队列中的任务
+        runAllTasksFrom(tailTasks); //yangyc 执行 tailTasks 队列中的所有任务
     }
 
     @Override
-    protected boolean hasTasks() {
+    protected boolean hasTasks() { //yangyc 队列中是否有任务
         return super.hasTasks() || !tailTasks.isEmpty();
     }
 
     @Override
-    public int pendingTasks() {
+    public int pendingTasks() { //yangyc 待执行的任务数量 --- 两个队列的任务之和
         return super.pendingTasks() + tailTasks.size();
     }
 

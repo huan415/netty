@@ -24,8 +24,8 @@ import java.util.concurrent.locks.LockSupport;
 /**
  * Expose helper methods which create different {@link RejectedExecutionHandler}s.
  */
-public final class RejectedExecutionHandlers {
-    private static final RejectedExecutionHandler REJECT = new RejectedExecutionHandler() {
+public final class RejectedExecutionHandlers { //yangyc RejectedExecutionHandler 实现类枚举, 目前有 2 种实现类; 1:REJECT;2:backoff
+    private static final RejectedExecutionHandler REJECT = new RejectedExecutionHandler() { //yangyc 默认的拒绝策略，直接抛异常
         @Override
         public void rejected(Runnable task, SingleThreadEventExecutor executor) {
             throw new RejectedExecutionException();
@@ -46,26 +46,26 @@ public final class RejectedExecutionHandlers {
      * is only done if the task was added from outside of the event loop which means
      * {@link EventExecutor#inEventLoop()} returns {@code false}.
      */
-    public static RejectedExecutionHandler backoff(final int retries, long backoffAmount, TimeUnit unit) {
+    public static RejectedExecutionHandler backoff(final int retries, long backoffAmount, TimeUnit unit) { //yangyc 拒绝策略，多次尝试添加到任务队列
         ObjectUtil.checkPositive(retries, "retries");
         final long backOffNanos = unit.toNanos(backoffAmount);
         return new RejectedExecutionHandler() {
             @Override
             public void rejected(Runnable task, SingleThreadEventExecutor executor) {
-                if (!executor.inEventLoop()) {
-                    for (int i = 0; i < retries; i++) {
+                if (!executor.inEventLoop()) { //yangyc 非 EventLoop 线程中。如果在 EventLoop 线程中，就无法执行任务，这就导致完全无法重试了。
+                    for (int i = 0; i < retries; i++) { //yangyc 循环多次尝试添加到队列中
                         // Try to wake up the executor so it will empty its task queue.
-                        executor.wakeup(false);
+                        executor.wakeup(false);  //yangyc 唤醒执行器，进行任务执行
 
-                        LockSupport.parkNanos(backOffNanos);
-                        if (executor.offerTask(task)) {
+                        LockSupport.parkNanos(backOffNanos); //yangyc 阻塞等待
+                        if (executor.offerTask(task)) { //yangyc 添加任务
                             return;
                         }
                     }
                 }
                 // Either we tried to add the task from within the EventLoop or we was not able to add it even with
                 // backoff.
-                throw new RejectedExecutionException();
+                throw new RejectedExecutionException(); //yangyc 多次尝试添加失败，抛出 RejectedExecutionException 异常
             }
         };
     }

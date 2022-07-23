@@ -37,7 +37,7 @@ import java.nio.charset.Charset;
 /**
  * An empty {@link ByteBuf} whose capacity and maximum capacity are all {@code 0}.
  */
-public final class EmptyByteBuf extends ByteBuf {
+public final class EmptyByteBuf extends ByteBuf { //yangyc 用于构建空 ByteBuf 对象，capacity 和 maxCapacity 均为 0
 
     static final int EMPTY_BYTE_BUF_HASH_CODE = 1;
     private static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.allocateDirect(0);

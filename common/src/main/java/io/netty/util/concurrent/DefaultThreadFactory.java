@@ -28,16 +28,16 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DefaultThreadFactory implements ThreadFactory {
 
-    private static final AtomicInteger poolId = new AtomicInteger();
+    private static final AtomicInteger poolId = new AtomicInteger(); //yangyc 每个DefaultThreadFactory实例都有自己的poolId
 
-    private final AtomicInteger nextId = new AtomicInteger();
-    private final String prefix;
-    private final boolean daemon;
-    private final int priority;
+    private final AtomicInteger nextId = new AtomicInteger(); //yangyc 每个DefaultThreadFactory实例内部生成的线程都有自己的线程ID
+    private final String prefix; //yangyc 线程前缀
+    private final boolean daemon; //yangyc 是否守护线程
+    private final int priority; //yangyc 线程优先级
     protected final ThreadGroup threadGroup;
 
     public DefaultThreadFactory(Class<?> poolType) {
-        this(poolType, false, Thread.NORM_PRIORITY);
+        this(poolType, false, Thread.NORM_PRIORITY); //yangyc 参数1:NioEventLoopGroup.class 参数2:非守护线程  参数3：线程优先级5
     }
 
     public DefaultThreadFactory(String poolName) {
@@ -60,14 +60,14 @@ public class DefaultThreadFactory implements ThreadFactory {
         this(poolName, false, priority);
     }
 
-    public DefaultThreadFactory(Class<?> poolType, boolean daemon, int priority) {
+    public DefaultThreadFactory(Class<?> poolType, boolean daemon, int priority) {  //yangyc 参数1:NioEventLoopGroup.class 参数2:非守护线程  参数3：线程优先级5
         this(toPoolName(poolType), daemon, priority);
     }
 
     public static String toPoolName(Class<?> poolType) {
         ObjectUtil.checkNotNull(poolType, "poolType");
 
-        String poolName = StringUtil.simpleClassName(poolType);
+        String poolName = StringUtil.simpleClassName(poolType); //yangyc 去除包名的class名（通过‘.’去除）
         switch (poolName.length()) {
             case 0:
                 return "unknown";
@@ -75,7 +75,7 @@ public class DefaultThreadFactory implements ThreadFactory {
                 return poolName.toLowerCase(Locale.US);
             default:
                 if (Character.isUpperCase(poolName.charAt(0)) && Character.isLowerCase(poolName.charAt(1))) {
-                    return Character.toLowerCase(poolName.charAt(0)) + poolName.substring(1);
+                    return Character.toLowerCase(poolName.charAt(0)) + poolName.substring(1); //yangyc 将 className 第一个字符转成小写并返回
                 } else {
                     return poolName;
                 }

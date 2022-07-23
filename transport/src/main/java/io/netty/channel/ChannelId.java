@@ -47,10 +47,10 @@ public interface ChannelId extends Serializable, Comparable<ChannelId> {
     /**
      * Returns the short but globally non-unique string representation of the {@link ChannelId}.
      */
-    String asShortText();
+    String asShortText(); //yangyc 返回的编号，短，但是全局非唯一. 具体看：DefaultChannelId#asShortText
 
     /**
      * Returns the long yet globally unique string representation of the {@link ChannelId}.
      */
-    String asLongText();
+    String asLongText(); //yangyc 返回的编号，长，但是全局唯一. 具体看：DefaultChannelId#asLongText
 }

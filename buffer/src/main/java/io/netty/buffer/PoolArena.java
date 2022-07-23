@@ -71,16 +71,16 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
     // TODO: Test if adding padding helps under contention
     //private long pad0, pad1, pad2, pad3, pad4, pad5, pad6, pad7;
 
-    protected PoolArena(PooledByteBufAllocator parent, int pageSize,
+    protected PoolArena(PooledByteBufAllocator parent, int pageSize, //yangyc 参数1：allocator对象，参数2：pageSize 8k; 参数3：pageShifts 13； 参数4：chunkSize 16mb; 参数5：0
           int pageShifts, int chunkSize, int cacheAlignment) {
         super(pageSize, pageShifts, chunkSize, cacheAlignment);
-        this.parent = parent;
+        this.parent = parent; //yangyc 记录当前 arena 归属的alloctor 对象
         directMemoryCacheAlignment = cacheAlignment;
 
-        numSmallSubpagePools = nSubpages;
-        smallSubpagePools = newSubpagePoolArray(numSmallSubpagePools);
+        numSmallSubpagePools = nSubpages; //yangyc 4
+        smallSubpagePools = newSubpagePoolArray(numSmallSubpagePools); //yangyc small 有四种小规格：512b; 1024b; 2048b; 4096b
         for (int i = 0; i < smallSubpagePools.length; i ++) {
-            smallSubpagePools[i] = newSubpagePoolHead();
+            smallSubpagePools[i] = newSubpagePoolHead(); //yangyc 遍历，每个数组内的元素都是 PoolSubpage 对象，该对象为head，且head的pre和next都指向自己
         }
 
         q100 = new PoolChunkList<T>(this, null, 100, Integer.MAX_VALUE, chunkSize);
@@ -121,13 +121,13 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
 
     abstract boolean isDirect();
 
-    PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
-        PooledByteBuf<T> buf = newByteBuf(maxCapacity);
-        allocate(cache, buf, reqCapacity);
+    PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) { //yangyc 参数1： cache 当前线程相关的 PoolThreadCache 对象。参数2：业务需要的内存容量。参数3：最大内存大小
+        PooledByteBuf<T> buf = newByteBuf(maxCapacity); //yangyc 获取一个 ByteBuf 对象，这一步时 ByteBuf 还未管理任何内存，它作为内存容器
+        allocate(cache, buf, reqCapacity); //yangyc 参数1：cache 当前线程相关的 PoolThreadCache 对象。参数2：返回给业务使用的ByteBuf对象(下面逻辑才真正给ByteBuf分配真正内存)；参数3：业务层需要的内存容器
         return buf;
     }
 
-    private void allocate(PoolThreadCache cache, PooledByteBuf<T> buf, final int reqCapacity) {
+    private void allocate(PoolThreadCache cache, PooledByteBuf<T> buf, final int reqCapacity) { //yangyc 参数1：cache 当前线程相关的 PoolThreadCache 对象。参数2：返回给业务使用的ByteBuf对象(下面逻辑才真正给ByteBuf分配真正内存)；参数3：业务层需要的内存容器
         final int sizeIdx = size2SizeIdx(reqCapacity);
 
         if (sizeIdx <= smallMaxSizeIdx) {
@@ -154,12 +154,12 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
          * Synchronize on the head. This is needed as {@link PoolChunk#allocateSubpage(int)} and
          * {@link PoolChunk#free(long)} may modify the doubly linked list as well.
          */
-        final PoolSubpage<T> head = smallSubpagePools[sizeIdx];
+        final PoolSubpage<T> head = smallSubpagePools[sizeIdx]; //yangyc 拿到一个符合规格的 head 节点
         final boolean needsNormalAllocation;
-        synchronized (head) {
-            final PoolSubpage<T> s = head.next;
+        synchronized (head) { //yangyc head 节点作为锁
+            final PoolSubpage<T> s = head.next; //yangyc 初始化时，创建出来的 head 节点 prev和next 是指向自己的节点。只有 arena 内申请过某个规格的 subpage 后，对应的下标的桶内才有 page
             needsNormalAllocation = s == head;
-            if (!needsNormalAllocation) {
+            if (!needsNormalAllocation) { //yangyc 条件成立：说明该规格的桶内有 subpage
                 assert s.doNotDestroy && s.elemSize == sizeIdx2size(sizeIdx) : "doNotDestroy=" +
                         s.doNotDestroy + ", elemSize=" + s.elemSize + ", sizeIdx=" + sizeIdx;
                 long handle = s.allocate();
@@ -168,9 +168,9 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
             }
         }
 
-        if (needsNormalAllocation) {
+        if (needsNormalAllocation) { //yangyc arena的subpage 和线程cache都没能满足申请内存的请求，则走 allocateNormal(...)
             synchronized (this) {
-                allocateNormal(buf, reqCapacity, sizeIdx, cache);
+                allocateNormal(buf, reqCapacity, sizeIdx, cache); //yangyc 参数1：返回给业务使用的ByteBuf对象。参数2：业务层需要的内存容量
             }
         }
 
@@ -190,18 +190,18 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
     }
 
     // Method must be called inside synchronized(this) { ... } block
-    private void allocateNormal(PooledByteBuf<T> buf, int reqCapacity, int sizeIdx, PoolThreadCache threadCache) {
-        if (q050.allocate(buf, reqCapacity, sizeIdx, threadCache) ||
+    private void allocateNormal(PooledByteBuf<T> buf, int reqCapacity, int sizeIdx, PoolThreadCache threadCache) {  //yangyc 参数1：返回给业务使用的ByteBuf对象。参数2：业务层需要的内存容量
+        if (q050.allocate(buf, reqCapacity, sizeIdx, threadCache) ||  //yangyc 先尝试到 PoolChunkList 内申请内存
             q025.allocate(buf, reqCapacity, sizeIdx, threadCache) ||
             q000.allocate(buf, reqCapacity, sizeIdx, threadCache) ||
             qInit.allocate(buf, reqCapacity, sizeIdx, threadCache) ||
             q075.allocate(buf, reqCapacity, sizeIdx, threadCache)) {
             return;
         }
-
+        //yangyc 执行到这里，说明在 PCL 没能申请内存成功，需要创建一个新的 chunk, 在新的 chunk 内申请内存
         // Add a new chunk.
-        PoolChunk<T> c = newChunk(pageSize, nPSizes, pageShifts, chunkSize);
-        boolean success = c.allocate(buf, reqCapacity, sizeIdx, threadCache);
+        PoolChunk<T> c = newChunk(pageSize, nPSizes, pageShifts, chunkSize); //yangyc 参数1：8k. 参数2：11。参数3：13。 参数4：16mb
+        boolean success = c.allocate(buf, reqCapacity, sizeIdx, threadCache); //yangyc 参数1：返回给业务使用的 ByteBuf 对象。 参数2：业务层使用的内存容量。
         assert success;
         qInit.add(c);
     }
@@ -607,7 +607,7 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
     static final class DirectArena extends PoolArena<ByteBuffer> {
 
         DirectArena(PooledByteBufAllocator parent, int pageSize, int pageShifts,
-                    int chunkSize, int directMemoryCacheAlignment) {
+                    int chunkSize, int directMemoryCacheAlignment) { //yangyc 参数1：allocator对象，参数2：pageSize 8k; 参数3：pageShifts 13； 参数4：chunkSize 16mb; 参数5：0
             super(parent, pageSize, pageShifts, chunkSize,
                   directMemoryCacheAlignment);
         }
@@ -618,11 +618,11 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
         }
 
         @Override
-        protected PoolChunk<ByteBuffer> newChunk(int pageSize, int maxPageIdx,
+        protected PoolChunk<ByteBuffer> newChunk(int pageSize, int maxPageIdx, //yangyc 参数1：8k. 参数2：11。参数3：13。 参数4：16mb
             int pageShifts, int chunkSize) {
-            if (directMemoryCacheAlignment == 0) {
-                ByteBuffer memory = allocateDirect(chunkSize);
-                return new PoolChunk<ByteBuffer>(this, memory, memory, pageSize, pageShifts,
+            if (directMemoryCacheAlignment == 0) { //yangyc 一般成立
+                ByteBuffer memory = allocateDirect(chunkSize); //yangyc 重要，使用 unsafe 的方式完成 DirectByteBuffer 内存的申请，16mb
+                return new PoolChunk<ByteBuffer>(this, memory, memory, pageSize, pageShifts, //yangyc 参数1：当前 directArena 对象， poolChunk需要知道他爸爸是谁。参数2：ByteBuf 对象。参数3：ByteBuf 对象。参数4：8k。参数5：13。参数6：16mb。
                         chunkSize, maxPageIdx);
             }
 
@@ -660,7 +660,7 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
 
         @Override
         protected PooledByteBuf<ByteBuffer> newByteBuf(int maxCapacity) {
-            if (HAS_UNSAFE) {
+            if (HAS_UNSAFE) { //yangyc 这常这个条件会成立
                 return PooledUnsafeDirectByteBuf.newInstance(maxCapacity);
             } else {
                 return PooledDirectByteBuf.newInstance(maxCapacity);

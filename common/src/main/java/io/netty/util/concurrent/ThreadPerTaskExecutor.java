@@ -20,15 +20,15 @@ import io.netty.util.internal.ObjectUtil;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 
-public final class ThreadPerTaskExecutor implements Executor {
-    private final ThreadFactory threadFactory;
+public final class ThreadPerTaskExecutor implements Executor { //yangyc 每个任务一个线程的执行器实现类
+    private final ThreadFactory threadFactory; //yangyc 线程工厂对象
 
     public ThreadPerTaskExecutor(ThreadFactory threadFactory) {
         this.threadFactory = ObjectUtil.checkNotNull(threadFactory, "threadFactory");
     }
 
     @Override
-    public void execute(Runnable command) {
+    public void execute(Runnable command) { //yangyc 执行任务
         threadFactory.newThread(command).start();
     }
 }

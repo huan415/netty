@@ -35,17 +35,17 @@ import java.nio.charset.Charset;
  * instead.
  */
 @Deprecated
-public class SwappedByteBuf extends ByteBuf {
+public class SwappedByteBuf extends ByteBuf { //yangyc 用于构建具有切换字节序功能的 ByteBuf 对象
 
-    private final ByteBuf buf;
-    private final ByteOrder order;
+    private final ByteBuf buf; //yangyc 原 ByteBuf 对象
+    private final ByteOrder order; //yangyc 字节序
 
     public SwappedByteBuf(ByteBuf buf) {
         this.buf = ObjectUtil.checkNotNull(buf, "buf");
         if (buf.order() == ByteOrder.BIG_ENDIAN) {
-            order = ByteOrder.LITTLE_ENDIAN;
+            order = ByteOrder.LITTLE_ENDIAN;  //yangyc 初始化 order 属性
         } else {
-            order = ByteOrder.BIG_ENDIAN;
+            order = ByteOrder.BIG_ENDIAN; //yangyc 初始化 order 属性
         }
     }
 

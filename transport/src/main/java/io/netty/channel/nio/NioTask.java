@@ -24,11 +24,11 @@ import java.nio.channels.Selector;
  *
  * @see NioEventLoop#register(SelectableChannel, int, NioTask)
  */
-public interface NioTask<C extends SelectableChannel> {
+public interface NioTask<C extends SelectableChannel> { //yangyc 用于自定义 Nio 事件处理接口。对于每个 Nio 事件，可以认为是一个任务( Task )
     /**
      * Invoked when the {@link SelectableChannel} has been selected by the {@link Selector}.
      */
-    void channelReady(C ch, SelectionKey key) throws Exception;
+    void channelReady(C ch, SelectionKey key) throws Exception; //yangyc 处理 Channel IO 就绪的事件，通过实现该接口方法，实现 processSelectedKey（） 的逻辑
 
     /**
      * Invoked when the {@link SelectionKey} of the specified {@link SelectableChannel} has been cancelled and thus
@@ -37,5 +37,5 @@ public interface NioTask<C extends SelectableChannel> {
      * @param cause the cause of the unregistration. {@code null} if a user called {@link SelectionKey#cancel()} or
      *              the event loop has been shut down.
      */
-    void channelUnregistered(C ch, Throwable cause) throws Exception;
+    void channelUnregistered(C ch, Throwable cause) throws Exception; //yangyc Channel 取消注册，通过实现该接口方法，关闭 Channel
 }

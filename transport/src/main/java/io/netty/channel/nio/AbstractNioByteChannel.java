@@ -62,8 +62,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
      * @param parent            the parent {@link Channel} by which this instance was created. May be {@code null}
      * @param ch                the underlying {@link SelectableChannel} on which it operates
      */
-    protected AbstractNioByteChannel(Channel parent, SelectableChannel ch) {
-        super(parent, ch, SelectionKey.OP_READ);
+    protected AbstractNioByteChannel(Channel parent, SelectableChannel ch) { //yangyc 参数1：NioServerSocketChannel, 参数2：JDK 层面的 SocketChannel,参数3：感兴趣的事件
+        super(parent, ch, SelectionKey.OP_READ); //yangyc-main 设置感兴趣事件 SelectionKey.OP_READ
     }
 
     /**
@@ -112,17 +112,17 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
         private void handleReadException(ChannelPipeline pipeline, ByteBuf byteBuf, Throwable cause, boolean close,
                 RecvByteBufAllocator.Handle allocHandle) {
-            if (byteBuf != null) {
-                if (byteBuf.isReadable()) {
+            if (byteBuf != null) { //yangyc byteBuf 非空，说明在发生异常之前，至少申请 ByteBuf 对象是成功的
+                if (byteBuf.isReadable()) { //yangyc ByteBuf 对象是否可读，即剩余可读的字节数据
                     readPending = false;
-                    pipeline.fireChannelRead(byteBuf);
+                    pipeline.fireChannelRead(byteBuf); //yangyc 触发 Channel read 事件到 pipeline 中。
                 } else {
-                    byteBuf.release();
+                    byteBuf.release(); //yangyc 释放 ByteBuf 对象
                 }
             }
-            allocHandle.readComplete();
-            pipeline.fireChannelReadComplete();
-            pipeline.fireExceptionCaught(cause);
+            allocHandle.readComplete(); //yangyc 读取完成
+            pipeline.fireChannelReadComplete(); //yangyc 触发 Channel readComplete 事件到 pipeline 中
+            pipeline.fireExceptionCaught(cause); //yangyc 触发 exceptionCaught 事件到 pipeline 中。
 
             // If oom will close the read event, release connection.
             // See https://github.com/netty/netty/issues/10434
@@ -133,45 +133,45 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
         @Override
         public final void read() {
-            final ChannelConfig config = config();
+            final ChannelConfig config = config();  //yangyc 获取客户端 Channel#config 对象
             if (shouldBreakReadReady(config)) {
-                clearReadPending();
+                clearReadPending(); //yangyc 若 inputClosedSeenErrorOnRead = true ，移除对 SelectionKey.OP_READ 事件的感兴趣
                 return;
             }
-            final ChannelPipeline pipeline = pipeline();
-            final ByteBufAllocator allocator = config.getAllocator();
-            final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
-            allocHandle.reset(config);
+            final ChannelPipeline pipeline = pipeline(); //yangyc 获取客户端 Channel#pipeline 对象
+            final ByteBufAllocator allocator = config.getAllocator();  //yangyc 获取缓冲区分配器 allocator。如果平台不是安卓的，缓冲区分配器就是池化管理的 PooledByteBufAllocator
+            final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();  //yangyc 控制读循环 + 预测下次创建 ByteBuf 容量大小
+            allocHandle.reset(config);  //yangyc 重置 RecvByteBufAllocator.Handle 对象
 
-            ByteBuf byteBuf = null;
-            boolean close = false;
+            ByteBuf byteBuf = null; //yangyc 对 JDK 层面的 ByteBuffer的增强接口实现，缓冲区里面包装者内存，提供去读取 socket 读缓冲区内的业务数据
+            boolean close = false; //yangyc 是否关闭连接
             try {
-                do {
-                    byteBuf = allocHandle.allocate(allocator);
-                    allocHandle.lastBytesRead(doReadBytes(byteBuf));
-                    if (allocHandle.lastBytesRead() <= 0) {
+                do { //yangyc 循环 读取新的写入数据
+                    byteBuf = allocHandle.allocate(allocator); //yangyc 申请 ByteBuf 对象；参数：池化内存管理的缓冲区分配器。 allocHandle作用：预测分配多大内存
+                    allocHandle.lastBytesRead(doReadBytes(byteBuf)); //yangyc 更新缓冲区预测分配器最后一次读取数据量. doReadBytes(byteBuf)=>返回真实从 SocketChannel 内读取的数据量
+                    if (allocHandle.lastBytesRead() <= 0) { //yangyc 未读取到数据。情况：1.channel底层socket缓冲区已经读取完毕返回0； 2:channel对端关闭了返回-1 --- [RecvByteBufAllocator.Handle#lastBytesRead]
                         // nothing was read. release the buffer.
-                        byteBuf.release();
-                        byteBuf = null;
-                        close = allocHandle.lastBytesRead() < 0;
+                        byteBuf.release(); //yangyc 释放 ByteBuf 对象
+                        byteBuf = null; //yangyc 置空 ByteBuf 对象
+                        close = allocHandle.lastBytesRead() < 0; //yangyc 如果最后读取的字节为小于 0 ，说明对端已经关闭
                         if (close) {
                             // There is nothing left to read as we received an EOF.
                             readPending = false;
                         }
-                        break;
+                        break; //yangyc 结束循环
                     }
 
-                    allocHandle.incMessagesRead(1);
+                    allocHandle.incMessagesRead(1); //yangyc 更新缓冲区预测分配器读取的消息数量； 读取消息数量 + localRead
                     readPending = false;
-                    pipeline.fireChannelRead(byteBuf);
+                    pipeline.fireChannelRead(byteBuf);  //yangyc 向客户端pipeline发起channelRead事件, pipeline中 实现了channelRead的handler就可以进行业务处理
                     byteBuf = null;
                 } while (allocHandle.continueReading());
 
-                allocHandle.readComplete();
-                pipeline.fireChannelReadComplete();
+                allocHandle.readComplete(); //yangyc 读取完成
+                pipeline.fireChannelReadComplete(); //yangyc 触发 Channel readComplete 事件到 pipeline 中。 设置客户端 Selector 包含read标记，表示Selector需要继续帮当前Channel监听read事件
 
                 if (close) {
-                    closeOnRead(pipeline);
+                    closeOnRead(pipeline); //yangyc 关闭客户端的连接
                 }
             } catch (Throwable t) {
                 handleReadException(pipeline, byteBuf, t, close, allocHandle);
@@ -268,8 +268,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     }
 
     @Override
-    protected final Object filterOutboundMessage(Object msg) {
-        if (msg instanceof ByteBuf) {
+    protected final Object filterOutboundMessage(Object msg) { //yangyc 过滤写入的消息( 数据 )
+        if (msg instanceof ByteBuf) { //yangyc ByteBuf 类型, 需要封装成 newDirectBuffer, 目的：Socket 传递数据时newDirectBuffer性能很好
             ByteBuf buf = (ByteBuf) msg;
             if (buf.isDirect()) {
                 return msg;
@@ -278,27 +278,27 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             return newDirectBuffer(buf);
         }
 
-        if (msg instanceof FileRegion) {
+        if (msg instanceof FileRegion) { //yangyc FileRegion 类型,
             return msg;
         }
 
-        throw new UnsupportedOperationException(
+        throw new UnsupportedOperationException( //yangyc 不支持其他类型
                 "unsupported message type: " + StringUtil.simpleClassName(msg) + EXPECTED_TYPES);
     }
 
     protected final void incompleteWrite(boolean setOpWrite) {
         // Did not write completely.
         if (setOpWrite) {
-            setOpWrite();
+            setOpWrite(); //true：yangyc 注册对 SelectionKey.OP_WRITE 事件感兴趣
         } else {
             // It is possible that we have set the write OP, woken up by NIO because the socket is writable, and then
             // use our write quantum. In this case we no longer want to set the write OP because the socket is still
             // writable (as far as we know). We will find out next time we attempt to write if the socket is writable
             // and set the write OP if necessary.
-            clearOpWrite();
+            clearOpWrite(); //false: yangyc 取消对 SelectionKey.OP_WRITE 事件感兴趣
 
             // Schedule flush again later so other tasks can be picked up in the meantime
-            eventLoop().execute(flushTask);
+            eventLoop().execute(flushTask); //yangyc 立即发起下一次 flush 任务
         }
     }
 
@@ -313,7 +313,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     /**
      * Read bytes into the given {@link ByteBuf} and return the amount.
      */
-    protected abstract int doReadBytes(ByteBuf buf) throws Exception;
+    protected abstract int doReadBytes(ByteBuf buf) throws Exception; //yangyc 读取写入的数据,返回读取到的字节数，返回值小于 0 时，表示对端已经关闭
 
     /**
      * Write bytes form the given {@link ByteBuf} to the underlying {@link java.nio.channels.Channel}.
@@ -322,17 +322,17 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
      */
     protected abstract int doWriteBytes(ByteBuf buf) throws Exception;
 
-    protected final void setOpWrite() {
+    protected final void setOpWrite() { //yangyc 注册对 SelectionKey.OP_WRITE 事件感兴趣
         final SelectionKey key = selectionKey();
         // Check first if the key is still valid as it may be canceled as part of the deregistration
         // from the EventLoop
         // See https://github.com/netty/netty/issues/2104
         if (!key.isValid()) {
-            return;
+            return;  //yangyc 不合法直接返回
         }
         final int interestOps = key.interestOps();
         if ((interestOps & SelectionKey.OP_WRITE) == 0) {
-            key.interestOps(interestOps | SelectionKey.OP_WRITE);
+            key.interestOps(interestOps | SelectionKey.OP_WRITE);  //yangyc 注册 SelectionKey.OP_WRITE 事件的感兴趣
         }
     }
 
@@ -342,11 +342,11 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         // from the EventLoop
         // See https://github.com/netty/netty/issues/2104
         if (!key.isValid()) {
-            return;
+            return; //yangyc 不合法，直接返回
         }
         final int interestOps = key.interestOps();
         if ((interestOps & SelectionKey.OP_WRITE) != 0) {
-            key.interestOps(interestOps & ~SelectionKey.OP_WRITE);
+            key.interestOps(interestOps & ~SelectionKey.OP_WRITE); //yangyc 若注册了 SelectionKey.OP_WRITE ，则进行取消
         }
     }
 }

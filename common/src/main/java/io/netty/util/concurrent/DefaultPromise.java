@@ -390,7 +390,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
     }
 
     @Override
-    public boolean isCancelled() {
+    public boolean isCancelled() { //yangyc 判断任务并未取消
         return isCancelled0(result);
     }
 
@@ -821,7 +821,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
         }
     }
 
-    private static boolean isCancelled0(Object result) {
+    private static boolean isCancelled0(Object result) { //yangyc 判断任务并未取消
         return result instanceof CauseHolder && ((CauseHolder) result).cause instanceof CancellationException;
     }
 

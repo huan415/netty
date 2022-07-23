@@ -12,6 +12,9 @@
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
  * License for the specific language governing permissions and limitations
  * under the License.
+ * yangyc NioSocketChannel 读取( read )对端的数据的过程，简单来说：
+ * 1. NioSocketChannel 所在的 EventLoop 线程轮询是否有新的数据写入。
+ * 2. 当轮询到有新的数据写入，NioSocketChannel 读取数据，并提交到 pipeline 中进行处
  */
 package io.netty.channel.socket.nio;
 
@@ -54,9 +57,9 @@ import static io.netty.channel.internal.ChannelUtils.MAX_BYTES_PER_GATHERING_WRI
 /**
  * {@link io.netty.channel.socket.SocketChannel} which uses NIO selector based implementation.
  */
-public class NioSocketChannel extends AbstractNioByteChannel implements io.netty.channel.socket.SocketChannel {
+public class NioSocketChannel extends AbstractNioByteChannel implements io.netty.channel.socket.SocketChannel { //yangyc NioSocketChannel 读取新的数据
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioSocketChannel.class);
-    private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
+    private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();  //yangyc 静态属性，默认的 SelectorProvider 实现类。
 
     private static SocketChannel newSocket(SelectorProvider provider) {
         try {
@@ -72,7 +75,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         }
     }
 
-    private final SocketChannelConfig config;
+    private final SocketChannelConfig config; //yangyc Channel 对应的配置对象
 
     /**
      * Create a new instance
@@ -101,9 +104,9 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * @param parent    the {@link Channel} which created this instance or {@code null} if it was created by the user
      * @param socket    the {@link SocketChannel} which will be used
      */
-    public NioSocketChannel(Channel parent, SocketChannel socket) {
-        super(parent, socket);
-        config = new NioSocketChannelConfig(this, socket.socket());
+    public NioSocketChannel(Channel parent, SocketChannel socket) { //yangyc 参数1：NioServerSocketChannel, 参数2：JDK 层面的 SocketChannel
+        super(parent, socket); //yangyc-main 调用父类 AbstractNioByteChannel 的构造方法, 感兴趣事件--SelectionKey.OP_READ
+        config = new NioSocketChannelConfig(this, socket.socket()); //yangyc-main 初始化 config 属性，创建 NioSocketChannelConfig 对象
     }
 
     @Override
@@ -122,9 +125,9 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     }
 
     @Override
-    public boolean isActive() {
+    public boolean isActive() { //yangyc 获得 Channel 是否激活
         SocketChannel ch = javaChannel();
-        return ch.isOpen() && ch.isConnected();
+        return ch.isOpen() && ch.isConnected(); //yangyc 是否处于打开，并且连接的状态
     }
 
     @Override
@@ -307,26 +310,26 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     @Override
     protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
         if (localAddress != null) {
-            doBind0(localAddress);
+            doBind0(localAddress);  //yangyc 绑定本地地址 --- 默认情况下，系统会随机分配一个可用的本地地址，进行绑定
         }
 
-        boolean success = false;
+        boolean success = false; //yangyc 执行是否成功
         try {
-            boolean connected = SocketUtils.connect(javaChannel(), remoteAddress);
+            boolean connected = SocketUtils.connect(javaChannel(), remoteAddress);  //yangyc 连接远程地址
             if (!connected) {
-                selectionKey().interestOps(SelectionKey.OP_CONNECT);
+                selectionKey().interestOps(SelectionKey.OP_CONNECT); //yangyc 若未连接完成，则关注连接( OP_CONNECT )事件。
             }
-            success = true;
-            return connected;
+            success = true; //yangyc 标记执行是否成功
+            return connected;  //yangyc 返回是否连接完成
         } finally {
             if (!success) {
-                doClose();
+                doClose(); //yangyc 执行失败，则关闭 Channel
             }
         }
     }
 
     @Override
-    protected void doFinishConnect() throws Exception {
+    protected void doFinishConnect() throws Exception { //yangyc 执行完成连接的逻辑
         if (!javaChannel().finishConnect()) {
             throw new Error();
         }
@@ -345,9 +348,9 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     protected int doReadBytes(ByteBuf byteBuf) throws Exception {
-        final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
-        allocHandle.attemptedBytesRead(byteBuf.writableBytes());
-        return byteBuf.writeBytes(javaChannel(), allocHandle.attemptedBytesRead());
+        final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle(); //yangyc 获得 RecvByteBufAllocator.Handle 对象
+        allocHandle.attemptedBytesRead(byteBuf.writableBytes()); //yangyc 设置最大可读取字节数量。因为 ByteBuf 目前最大写入的大小为 byteBuf.writableBytes()
+        return byteBuf.writeBytes(javaChannel(), allocHandle.attemptedBytesRead()); //yangyc 读取数据到 ByteBuf 中 --- 默认PooledUnsafeDirectByteBuf。 参数1：JDK层面的SocketChannel实例，参数2：length,想要读取的数据量; 返回真实从 SocketChannel 读取的数据量
     }
 
     @Override
@@ -376,25 +379,25 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     }
 
     @Override
-    protected void doWrite(ChannelOutboundBuffer in) throws Exception {
-        SocketChannel ch = javaChannel();
-        int writeSpinCount = config().getWriteSpinCount();
+    protected void doWrite(ChannelOutboundBuffer in) throws Exception { //yangyc 执行真正的写入到对端； 当前 channel 出栈缓冲区
+        SocketChannel ch = javaChannel(); //yangyc 获得 Java NIO 原生 SocketChannel
+        int writeSpinCount = config().getWriteSpinCount(); //yangyc 获得自旋写入次数, 默认16次。 表示 do...while 最多执行16次
         do {
-            if (in.isEmpty()) {
-                // All written so clear OP_WRITE
-                clearOpWrite();
+            if (in.isEmpty()) { //yangyc 条件成立，说明出栈缓冲区内待刷新的entry都预计处理完毕，结束循环，直接返回
+                // All written so clear OP_WRITE yangyc 因为在 Channel 不可写的时候，会注册 SelectionKey.OP_WRITE ，等待 NIO Channel 可写。而后会”回调” #forceFlush() 方法，该方法内部也会调用 #doWrite(ChannelOutboundBuffer in) 方法。所以在完成内部队列的数据向对端写入时候，需要调用 #clearOpWrite() 方法
+                clearOpWrite(); //yangyc 正常退出之前，将当前 ch 在 selector 上注册的 OP_WRITE 清理掉，不然又会触发到write事件
                 // Directly return here so incompleteWrite(...) is not called.
-                return;
+                return; //yangyc 正常退出 do...while 都是从这里结束
             }
-
+            //yangyc 执行到这里，说明当前 ch 出栈缓冲区内有剩余 entry 待刷新
             // Ensure the pending writes are made of ByteBufs only.
-            int maxBytesPerGatheringWrite = ((NioSocketChannelConfig) config).getMaxBytesPerGatheringWrite();
-            ByteBuffer[] nioBuffers = in.nioBuffers(1024, maxBytesPerGatheringWrite);
-            int nioBufferCnt = in.nioBufferCount();
+            int maxBytesPerGatheringWrite = ((NioSocketChannelConfig) config).getMaxBytesPerGatheringWrite(); //yangyc 限定每次从出栈缓冲区内转换多少 byteBuf 字节数据的一个变量；该变量会随着ch的状态不断变化
+            ByteBuffer[] nioBuffers = in.nioBuffers(1024, maxBytesPerGatheringWrite); //yangyc 将出栈缓冲区内的部分 entry.msg 转换成 JDK channel 依赖的标准对象 ByteBuffer； 返回 ByteBuffer 数组。 参数1：最多转换出1024个ByteBuffer对象，参数2:最多转换 maxBytes 字节的ByteBud
+            int nioBufferCnt = in.nioBufferCount();  //yangyc 获取出上一步转换的 byteBuffer 的数量
 
             // Always use nioBuffers() to workaround data-corruption.
             // See https://github.com/netty/netty/issues/2761
-            switch (nioBufferCnt) {
+            switch (nioBufferCnt) { //yangyc 写入 ByteBuffer 数组，到对端
                 case 0:
                     // We have something else beside ByteBuffers to write so fallback to normal writes.
                     writeSpinCount -= doWrite0(in);
@@ -403,39 +406,41 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
                     // Only one ByteBuf so use non-gathering write
                     // Zero length buffers are not added to nioBuffers by ChannelOutboundBuffer, so there is no need
                     // to check if the total size of all the buffers is non-zero.
-                    ByteBuffer buffer = nioBuffers[0];
-                    int attemptedBytes = buffer.remaining();
-                    final int localWrittenBytes = ch.write(buffer);
-                    if (localWrittenBytes <= 0) {
-                        incompleteWrite(true);
+                    ByteBuffer buffer = nioBuffers[0]; //yangyc 因为 nioBufferCnt 是1， 所以刚刚 nioBuffers 方法只转换出一个 buteBuffer 对象
+                    int attemptedBytes = buffer.remaining(); //yangyc 获取 buteBuffer 有效数据大小
+                    final int localWrittenBytes = ch.write(buffer); //yangyc 使用 JDK 层面的 ch.write 将 buffer 内的数据写入到 socket 写缓冲区。返回值：本次write真正写入socket的大小
+                    if (localWrittenBytes <= 0) { //yangyc 条件成立：说明底层 socket 写缓冲区已经满了，本次 write 没写进去
+                        incompleteWrite(true);  //yangyc 设置ch在多路复用器上注册的事件，关注OP_WRITE, 当底层 socket 写缓冲区有空闲空间后，多路复用器会再次唤醒当前 NioEnventLoop 线程，再去处理当前 ch 剩余的待写数据
                         return;
                     }
-                    adjustMaxBytesPerGatheringWrite(attemptedBytes, localWrittenBytes, maxBytesPerGatheringWrite);
-                    in.removeBytes(localWrittenBytes);
+                    //yangyc 执行到这里，说明 buffer 可能全部写入到 socket 缓冲区 或者 一部分写入到socket缓冲区
+                    adjustMaxBytesPerGatheringWrite(attemptedBytes, localWrittenBytes, maxBytesPerGatheringWrite); //yangyc 调整每次写入的最大字节数
+                    in.removeBytes(localWrittenBytes);  //yangyc 将真正写入到 socket 写缓冲区的字节从出栈缓冲区移除； 参数：真正写入到 socket 写缓冲区的大小
                     --writeSpinCount;
-                    break;
+                    break; //yangyc 写入次数减一
                 }
                 default: {
                     // Zero length buffers are not added to nioBuffers by ChannelOutboundBuffer, so there is no need
                     // to check if the total size of all the buffers is non-zero.
                     // We limit the max amount to int above so cast is safe
                     long attemptedBytes = in.nioBufferSize();
-                    final long localWrittenBytes = ch.write(nioBuffers, 0, nioBufferCnt);
+                    final long localWrittenBytes = ch.write(nioBuffers, 0, nioBufferCnt); //yangyc 执行 NIO write 调用，写入多个 ByteBuffer 到对端
                     if (localWrittenBytes <= 0) {
-                        incompleteWrite(true);
+                        incompleteWrite(true); //yangyc 写入字节小于等于 0 ，说明 NIO Channel 不可写，所以注册 SelectionKey.OP_WRITE ，等待 NIO Channel 可写，并返回以结束循环
                         return;
                     }
                     // Casting to int is safe because we limit the total amount of data in the nioBuffers to int above.
                     adjustMaxBytesPerGatheringWrite((int) attemptedBytes, (int) localWrittenBytes,
-                            maxBytesPerGatheringWrite);
-                    in.removeBytes(localWrittenBytes);
-                    --writeSpinCount;
+                            maxBytesPerGatheringWrite); //yangyc 调整每次写入的最大字节数
+                    in.removeBytes(localWrittenBytes);  //yangyc 从内存队列中，移除已经写入的数据( 消息 )
+                    --writeSpinCount; //yangyc 写入次数减一
                     break;
                 }
             }
         } while (writeSpinCount > 0);
-
-        incompleteWrite(writeSpinCount < 0);
+        //yangyc 执行到这里，说明do...while 循环16次，仍然没有能将出栈缓冲区待发送的数据处理完。 incompleteWrite() 提交一个 flushTask,最终会调用 dowrite(),注意调用dowrite之前并没有addFlush...
+        //yangyc 为什么是提交 flushTask, 而不是继续干？ 避免多路复用器其他ch饥饿； 让其他NioEventLoop线程接下来处理其他ch上的事件，回过头处理完IO之后，再让NioEventLoop本地任务队列内的任务，处理任务就会碰到 flushTask, 就有机会继续完成当前ch剩余的待发送数据了。。。
+        incompleteWrite(writeSpinCount < 0);   //yangyc 内存队列中的数据未完全写入，说明 NIO Channel 不可写，所以注册 SelectionKey.OP_WRITE ，等待 NIO Channel 可写
     }
 
     @Override

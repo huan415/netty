@@ -439,9 +439,9 @@ public final class PlatformDependent {
     /**
      * Creates a new fastest {@link LongCounter} implementation for the current platform.
      */
-    public static LongCounter newLongCounter() {
+    public static LongCounter newLongCounter() { //yangyc 根据不同的JDK版本获取不同的 LongCounter
         if (javaVersion() >= 8) {
-            return new LongAdderCounter();
+            return new LongAdderCounter(); //yangyc Metric 写多读少，所以 LongAdder 比 AtomicLong 更合适
         } else {
             return new AtomicLongCounter();
         }
