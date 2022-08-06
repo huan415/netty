@@ -60,14 +60,14 @@ import java.util.List;
  */
 public class DelimiterBasedFrameDecoder extends ByteToMessageDecoder {
 
-    private final ByteBuf[] delimiters;
-    private final int maxFrameLength;
-    private final boolean stripDelimiter;
-    private final boolean failFast;
-    private boolean discardingTooLongFrame;
-    private int tooLongFrameLength;
+    private final ByteBuf[] delimiters; //yangyc 自定义分隔符数组
+    private final int maxFrameLength; //yangyc 业务层指定的最大包长度
+    private final boolean stripDelimiter; //yangyc 是否跳过分隔符
+    private final boolean failFast; //yangyc 是否快速失败
+    private boolean discardingTooLongFrame; //yangyc 是否为丢弃模式
+    private int tooLongFrameLength; //yangyc 丢弃模式下，记录已经丢弃的数据量
     /** Set only when decoding with "\n" and "\r\n" as the delimiter.  */
-    private final LineBasedFrameDecoder lineBasedDecoder;
+    private final LineBasedFrameDecoder lineBasedDecoder;  //yangyc 如果你创建的 delimiters 内部的分隔符是 "\n" 和 "\r\n" 的话，当前 decoder 借用 lineBasedDecoder代理来完成代理逻辑
 
     /**
      * Creates a new instance.
@@ -169,10 +169,10 @@ public class DelimiterBasedFrameDecoder extends ByteToMessageDecoder {
         validateMaxFrameLength(maxFrameLength);
         ObjectUtil.checkNonEmpty(delimiters, "delimiters");
 
-        if (isLineBased(delimiters) && !isSubclass()) {
+        if (isLineBased(delimiters) && !isSubclass()) {//yangyc 使用DelimiterBasedFrameDecoder时传递的 delimiters 内部的分隔符是 "\n" 和 "\r\n" 的话，当前 decoder 借用 lineBasedDecoder代理来完成代理逻辑
             lineBasedDecoder = new LineBasedFrameDecoder(maxFrameLength, stripDelimiter, failFast);
             this.delimiters = null;
-        } else {
+        } else { //yangyc 执行到这里说明分隔符列表是其他情况
             this.delimiters = new ByteBuf[delimiters.length];
             for (int i = 0; i < delimiters.length; i ++) {
                 ByteBuf d = delimiters[i];
@@ -227,7 +227,7 @@ public class DelimiterBasedFrameDecoder extends ByteToMessageDecoder {
      */
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
         if (lineBasedDecoder != null) {
-            return lineBasedDecoder.decode(ctx, buffer);
+            return lineBasedDecoder.decode(ctx, buffer); //yangyc 代理完成功能
         }
         // Try all delimiters and choose the delimiter which yields the shortest frame.
         int minFrameLength = Integer.MAX_VALUE;

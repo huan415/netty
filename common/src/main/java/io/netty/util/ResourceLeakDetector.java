@@ -42,16 +42,16 @@ import static io.netty.util.internal.StringUtil.simpleClassName;
 
 public class ResourceLeakDetector<T> {
 
-    private static final String PROP_LEVEL_OLD = "io.netty.leakDetectionLevel";
+    private static final String PROP_LEVEL_OLD = "io.netty.leakDetectionLevel"; //yangyc 配置资源监控级别
     private static final String PROP_LEVEL = "io.netty.leakDetection.level";
-    private static final Level DEFAULT_LEVEL = Level.SIMPLE;
+    private static final Level DEFAULT_LEVEL = Level.SIMPLE; //yangyc 资源监控级别默认 simple
 
-    private static final String PROP_TARGET_RECORDS = "io.netty.leakDetection.targetRecords";
-    private static final int DEFAULT_TARGET_RECORDS = 4;
+    private static final String PROP_TARGET_RECORDS = "io.netty.leakDetection.targetRecords"; //yangyc 配置资源追踪器（leak）记录数
+    private static final int DEFAULT_TARGET_RECORDS = 4; //yangyc 默认记录数4， 超过它会被限制
 
-    private static final String PROP_SAMPLING_INTERVAL = "io.netty.leakDetection.samplingInterval";
+    private static final String PROP_SAMPLING_INTERVAL = "io.netty.leakDetection.samplingInterval"; //yangyc 配置采样阈值
     // There is a minor performance benefit in TLR if this is a power of 2.
-    private static final int DEFAULT_SAMPLING_INTERVAL = 128;
+    private static final int DEFAULT_SAMPLING_INTERVAL = 128; //yangyc 默认采样阈值128
 
     private static final int TARGET_RECORDS;
     static final int SAMPLING_INTERVAL;
@@ -61,22 +61,22 @@ public class ResourceLeakDetector<T> {
      */
     public enum Level {
         /**
-         * Disables resource leak detection.
+         * Disables resource leak detection. yangyc 禁用资源泄漏检测
          */
         DISABLED,
         /**
          * Enables simplistic sampling resource leak detection which reports there is a leak or not,
-         * at the cost of small overhead (default).
+         * at the cost of small overhead (default). yangyc 实现简单的采样资源泄漏检测，报告是否存在泄漏，以少量开销为代价（默认）
          */
         SIMPLE,
         /**
          * Enables advanced sampling resource leak detection which reports where the leaked object was accessed
-         * recently at the cost of high overhead.
+         * recently at the cost of high overhead. yangyc 采用高级采样资源泄漏检测，报告泄漏对象的最近访问位置，以高昂的开销为代价
          */
         ADVANCED,
         /**
          * Enables paranoid resource leak detection which reports where the leaked object was accessed recently,
-         * at the cost of the highest possible overhead (for testing purposes only).
+         * at the cost of the highest possible overhead (for testing purposes only). yangyc 启用偏执资源泄漏检测，报告最近访问泄漏对象的位置，以尽可能到的开销为代价（仅用于测试目的）
          */
         PARANOID;
 
@@ -242,24 +242,26 @@ public class ResourceLeakDetector<T> {
      * @return the {@link ResourceLeakTracker} or {@code null}
      */
     @SuppressWarnings("unchecked")
-    public final ResourceLeakTracker<T> track(T obj) {
+    public final ResourceLeakTracker<T> track(T obj) { //yangyc 参数：是否被追踪的资源对象
         return track0(obj);
     }
 
     @SuppressWarnings("unchecked")
     private DefaultResourceLeak track0(T obj) {
         Level level = ResourceLeakDetector.level;
-        if (level == Level.DISABLED) {
+        if (level == Level.DISABLED) { //yangyc 条件成立: 说明资源泄漏检测机制处于关闭状态
             return null;
         }
 
-        if (level.ordinal() < Level.PARANOID.ordinal()) {
-            if ((PlatformDependent.threadLocalRandom().nextInt(samplingInterval)) == 0) {
-                reportLeak();
-                return new DefaultResourceLeak(obj, refQueue, allLeaks);
+        if (level.ordinal() < Level.PARANOID.ordinal()) { //yangyc 条件成立：说明 level 是 simple或advance 状态
+            if ((PlatformDependent.threadLocalRandom().nextInt(samplingInterval)) == 0) { //yangyc 计算一个随机数，随机数取值范围 samplingInterval，如果随机数是0，则对资源进行追踪
+                reportLeak(); //yangyc 上报之前发生的泄漏情况
+                //yangyc 创建资源泄漏追踪器，参数1:被追踪对象，weakReference保存它; 参数2:资源泄漏检测器对象范围的引用队列，当 obj 被GC后, leak会加入到该refQueue;
+                return new DefaultResourceLeak(obj, refQueue, allLeaks); //yangyc 参数3:资源泄漏检测器对象范围的集合leaks, 每创建一个leak, 都会将leak加入到leaks集合内,后续判定是否发生资源泄漏都与该集合有关系;
             }
-            return null;
+            return null; //yangyc 否则返回 null, 表示不追踪
         }
+        //yangyc 执行到这里，说明 level 是 PARANOID 状态
         reportLeak();
         return new DefaultResourceLeak(obj, refQueue, allLeaks);
     }
@@ -285,23 +287,23 @@ public class ResourceLeakDetector<T> {
     }
 
     private void reportLeak() {
-        if (!needReport()) {
-            clearRefQueue();
+        if (!needReport()) { //yangyc 条件成立:说明当前项目没有开启 error 日志级别
+            clearRefQueue(); //yangyc 清理队列
             return;
         }
 
         // Detect and report previous leaks.
         for (;;) {
             DefaultResourceLeak ref = (DefaultResourceLeak) refQueue.poll();
-            if (ref == null) {
+            if (ref == null) { //yangyc 条件成立: 说明当前引用队列已经全部清理完毕，这里跳出循环
                 break;
             }
 
-            if (!ref.dispose()) {
+            if (!ref.dispose()) { //yangyc ref.dispose() 如果返回true, 说明发生资源泄漏了
                 continue;
             }
 
-            String records = ref.toString();
+            String records = ref.toString(); //yangyc 获取异常信息
             if (reportedLeaks.add(records)) {
                 if (records.isEmpty()) {
                     reportUntracedLeak(resourceType);
@@ -358,17 +360,17 @@ public class ResourceLeakDetector<T> {
                         AtomicIntegerFieldUpdater.newUpdater(DefaultResourceLeak.class, "droppedRecords");
 
         @SuppressWarnings("unused")
-        private volatile Record head;
+        private volatile Record head; //yangyc 资源使用的记录信息，它继承Throwable，天生带着创建时的堆栈信息
         @SuppressWarnings("unused")
-        private volatile int droppedRecords;
+        private volatile int droppedRecords; //yangyc 删除的 record 记录数
 
-        private final Set<DefaultResourceLeak<?>> allLeaks;
-        private final int trackedHash;
+        private final Set<DefaultResourceLeak<?>> allLeaks; //yangyc 资源泄漏检测器对象范围的集合leaks
+        private final int trackedHash; //yangyc 被追踪对象的 hash 值，如果保存被追踪对象的强引用...会导致被追踪对象多一个强引用...
 
         DefaultResourceLeak(
-                Object referent,
+                Object referent,  //yangyc 创建资源泄漏追踪器，参数1:被追踪对象，weakReference保存它; 参数2:资源泄漏检测器对象范围的引用队列，当 obj 被GC后, leak会加入到该refQueue;
                 ReferenceQueue<Object> refQueue,
-                Set<DefaultResourceLeak<?>> allLeaks) {
+                Set<DefaultResourceLeak<?>> allLeaks) { //yangyc 参数3:资源泄漏检测器对象范围的集合leaks, 每创建一个leak, 都会将leak加入到leaks集合内,后续判定是否发生资源泄漏都与该集合有关系
             super(referent, refQueue);
 
             assert referent != null;
@@ -376,10 +378,10 @@ public class ResourceLeakDetector<T> {
             // Store the hash of the tracked object to later assert it in the close(...) method.
             // It's important that we not store a reference to the referent as this would disallow it from
             // be collected via the WeakReference.
-            trackedHash = System.identityHashCode(referent);
-            allLeaks.add(this);
+            trackedHash = System.identityHashCode(referent); //yangyc 存储追踪对象的hash值，以便稍后在close() 方法中断言它，重要的是，我们不要存储对referent的引用，因为这将禁止它通过 weakReference 收集
+            allLeaks.add(this); //yangyc 加入到资源泄漏检测器范围集合 leaks
             // Create a new Record so we always have the creation stacktrace included.
-            headUpdater.set(this, new Record(Record.BOTTOM));
+            headUpdater.set(this, new Record(Record.BOTTOM)); //yangyc 记录一条 record 信息，通过这一条 record 可以知道当前被追踪对象创建时的线程堆栈信息
             this.allLeaks = allLeaks;
         }
 
@@ -422,23 +424,23 @@ public class ResourceLeakDetector<T> {
         private void record0(Object hint) {
             // Check TARGET_RECORDS > 0 here to avoid similar check before remove from and add to lastRecords
             if (TARGET_RECORDS > 0) {
-                Record oldHead;
-                Record prevHead;
-                Record newHead;
-                boolean dropped;
+                Record oldHead; //yangyc 原头节点
+                Record prevHead; //yangyc 上一个头节点
+                Record newHead; //yangyc 新头节点
+                boolean dropped; //yangyc 是否删除节点
                 do {
-                    if ((prevHead = oldHead = headUpdater.get(this)) == null) {
+                    if ((prevHead = oldHead = headUpdater.get(this)) == null) { //yangyc 条件成立：说明资源泄漏追踪器已经关闭了
                         // already closed.
                         return;
                     }
-                    final int numElements = oldHead.pos + 1;
-                    if (numElements >= TARGET_RECORDS) {
-                        final int backOffFactor = Math.min(numElements - TARGET_RECORDS, 30);
-                        if (dropped = PlatformDependent.threadLocalRandom().nextInt(1 << backOffFactor) != 0) {
+                    final int numElements = oldHead.pos + 1; //yangyc 计算出当前资源泄漏追踪器内有多少 records 信息
+                    if (numElements >= TARGET_RECORDS) { //yangyc 条件成立：说明已经达到阈值，TARGET_RECORDS默认4，不再无脑添加新records信息了，而是根据策略决定
+                        final int backOffFactor = Math.min(numElements - TARGET_RECORDS, 30); //yangyc 计算出一个数值
+                        if (dropped = PlatformDependent.threadLocalRandom().nextInt(1 << backOffFactor) != 0) { //yangyc 算出的随机数不等于0，则是替换原头节点，保留最新的调用信息
                             prevHead = oldHead.next;
                         }
                     } else {
-                        dropped = false;
+                        dropped = false; //yangyc 设置为 false, 表示插入 record, 而不是替换
                     }
                     newHead = hint != null ? new Record(prevHead, hint) : new Record(prevHead);
                 } while (!headUpdater.compareAndSet(this, oldHead, newHead));
@@ -450,15 +452,15 @@ public class ResourceLeakDetector<T> {
 
         boolean dispose() {
             clear();
-            return allLeaks.remove(this);
+            return allLeaks.remove(this); //yangyc 正常情况下: close时就已经将当前leak从allLeaks内移除，如果这里返回true,说明没能正常关闭资源
         }
 
         @Override
         public boolean close() {
-            if (allLeaks.remove(this)) {
+            if (allLeaks.remove(this)) { //yangyc 正常逻辑：将当前资源泄漏追踪器从 资源追踪检测器的allLeaks集合内移除
                 // Call clear so the reference is not even enqueued.
-                clear();
-                headUpdater.set(this, null);
+                clear(); //yangyc 因为资源泄漏追踪器是弱引用，这里将对象设置为null, 后续 被管理对象 被gc就不再进行通知了
+                headUpdater.set(this, null); //yangyc 将调用记录清理掉
                 return true;
             }
             return false;

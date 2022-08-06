@@ -55,10 +55,10 @@ import java.util.List;
 @Sharable
 public class LengthFieldPrepender extends MessageToMessageEncoder<ByteBuf> {
 
-    private final ByteOrder byteOrder;
-    private final int lengthFieldLength;
-    private final boolean lengthIncludesLengthFieldLength;
-    private final int lengthAdjustment;
+    private final ByteOrder byteOrder; //yangyc 大小端工具对象
+    private final int lengthFieldLength; //yangyc 长度域字段长度
+    private final boolean lengthIncludesLengthFieldLength; //yangyc 长度域是否包含长度域本身
+    private final int lengthAdjustment; //yangyc 调整长度
 
     /**
      * Creates a new instance.
@@ -158,8 +158,8 @@ public class LengthFieldPrepender extends MessageToMessageEncoder<ByteBuf> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) throws Exception {
-        int length = msg.readableBytes() + lengthAdjustment;
-        if (lengthIncludesLengthFieldLength) {
+        int length = msg.readableBytes() + lengthAdjustment; //yangyc 真实消息 msg 可读数据量大小 + lengthAdjustment
+        if (lengthIncludesLengthFieldLength) {  //yangyc 条件成立：说明长度域内的值需要包含长度域自身长度
             length += lengthFieldLength;
         }
 
@@ -196,6 +196,6 @@ public class LengthFieldPrepender extends MessageToMessageEncoder<ByteBuf> {
         default:
             throw new Error("should not reach here");
         }
-        out.add(msg.retain());
+        out.add(msg.retain()); //yangyc 将引用计数加1，并且返回当前 byteBuf. 为什么要加1？因为当前类继续至MessageToMessageEncoder，这里引用加1，防止被父类 finally 逻辑release释放内存
     }
 }

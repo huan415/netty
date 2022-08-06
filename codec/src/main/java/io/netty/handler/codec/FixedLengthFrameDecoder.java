@@ -73,7 +73,9 @@ public class FixedLengthFrameDecoder extends ByteToMessageDecoder {
         if (in.readableBytes() < frameLength) {
             return null;
         } else {
-            return in.readRetainedSlice(frameLength);
+            return in.readRetainedSlice(frameLength); //yangyc 从原堆积区读取指定长度的字节量，创建处来新的 ByteBuf, 并且会增加堆积区的引用计数值。
+            //yangyc 为什么增加引用计数值？因为切片出来的byteBuf占用的内存是堆积区的子集，在切片未释放之前，堆积区的ByteBuf不能去释放内存，不然切片找不到内存
+            //yangyc 切片 byteBuf.release() 会将它的父节点 堆积区ByteBuf引用计数-1
         }
     }
 }

@@ -64,25 +64,25 @@ final class PoolThreadCache {
 
     // TODO: Test if adding padding helps under contention
     //private long pad0, pad1, pad2, pad3, pad4, pad5, pad6, pad7;
-
+    //yangyc 创建归属当前线程的 cache 对象, 参数1:heapArena; 参数2:directArena; 参数3:512; 参数4:256; 参数5:64; 参数6:32K; 参数7:8192 一个阈值;
     PoolThreadCache(PoolArena<byte[]> heapArena, PoolArena<ByteBuffer> directArena,
                     int tinyCacheSize, int smallCacheSize, int normalCacheSize,
                     int maxCachedBufferCapacity, int freeSweepAllocationThreshold) {
         checkPositiveOrZero(maxCachedBufferCapacity, "maxCachedBufferCapacity");
-        this.freeSweepAllocationThreshold = freeSweepAllocationThreshold;
-        this.heapArena = heapArena;
+        this.freeSweepAllocationThreshold = freeSweepAllocationThreshold; //yangyc 8192; 当使用 PoolThreadCache get 8192次之后, 会进行一次主动清理空调内存的逻辑。将缓存的位置信息归还给 PoolAlloctor
+        this.heapArena = heapArena; //yangyc 保存分配给当前线程的者两个 arena。注意: arena 是由多个线程共享的, 一个线程只有一个指定的 direct、heap area
         this.directArena = directArena;
-        if (directArena != null) {
-            tinySubPageDirectCaches = createSubPageCaches(
-                    tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny);
-            smallSubPageDirectCaches = createSubPageCaches(
-                    smallCacheSize, directArena.numSmallSubpagePools, SizeClass.Small);
+        if (directArena != null) { //yangyc 条件一般都成立
+            tinySubPageDirectCaches = createSubPageCaches( //yangyc 创建出一个长度为32的MemoryRegionCache数组, 并且数组内的每一个元素类型为 SubpageMemoryRegionCache 类型; SubpageMemoryRegionCache 包含一个固定长度 512 的队列（能缓存512个内存位置信息）
+                    tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny); //yangyc 参数1:512; 参数2:32个数组; 参数3:规格类型 SizeClass.Tiny;
+            smallSubPageDirectCaches = createSubPageCaches(//yangyc 创建出一个长度为4的MemoryRegionCache数组, 并且数组内的每一个元素类型为 SubpageMemoryRegionCache 类型; SubpageMemoryRegionCache 包含一个固定长度 256 的队列（能缓存256个内存位置信息）
+                    smallCacheSize, directArena.numSmallSubpagePools, SizeClass.Small); //yangyc 参数1:256; 参数2:4个数组; 参数3:规格类型 SizeClass.Small;
 
-            numShiftsNormalDirect = log2(directArena.pageSize);
-            normalDirectCaches = createNormalCaches(
-                    normalCacheSize, maxCachedBufferCapacity, directArena);
+            numShiftsNormalDirect = log2(directArena.pageSize); //yangyc pageSize:8K==>8192, 以2为底,8192的对数. ==> 13
+            normalDirectCaches = createNormalCaches( //yangyc 创建出一个长度为3的MemoryRegionCache数组, 并且数组内的每一个元素类型为 NormalMemoryRegionCache 类型; NormalMemoryRegionCache 包含一个固定长度 64 的队列（能缓存64个内存位置信息）
+                    normalCacheSize, maxCachedBufferCapacity, directArena);//yangyc 参数1:64; 参数2:32k; 参数3:directArena;
 
-            directArena.numThreadCaches.getAndIncrement();
+            directArena.numThreadCaches.getAndIncrement(); //yangyc 给当前 PoolThreadCache 占用的 directArena 自增使用的线程数量
         } else {
             // No directArea is configured so just null out all caches
             tinySubPageDirectCaches = null;
@@ -90,7 +90,7 @@ final class PoolThreadCache {
             normalDirectCaches = null;
             numShiftsNormalDirect = -1;
         }
-        if (heapArena != null) {
+        if (heapArena != null) { //yangyc 条件一般都成立
             // Create the caches for the heap allocations
             tinySubPageHeapCaches = createSubPageCaches(
                     tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny);
@@ -119,14 +119,14 @@ final class PoolThreadCache {
         }
     }
 
-    private static <T> MemoryRegionCache<T>[] createSubPageCaches(
+    private static <T> MemoryRegionCache<T>[] createSubPageCaches( //yangyc tinySubPageDirectCaches ==> 参数1:512; 参数2:32个数组; 参数3:规格类型 SizeClass.Tiny;
             int cacheSize, int numCaches, SizeClass sizeClass) {
         if (cacheSize > 0 && numCaches > 0) {
             @SuppressWarnings("unchecked")
             MemoryRegionCache<T>[] cache = new MemoryRegionCache[numCaches];
             for (int i = 0; i < cache.length; i++) {
                 // TODO: maybe use cacheSize / cache.length
-                cache[i] = new SubPageMemoryRegionCache<T>(cacheSize, sizeClass);
+                cache[i] = new SubPageMemoryRegionCache<T>(cacheSize, sizeClass); //yangyc 参数1:512; 参数2:规格类型 SizeClass.Tiny;
             }
             return cache;
         } else {
@@ -134,15 +134,15 @@ final class PoolThreadCache {
         }
     }
 
-    private static <T> MemoryRegionCache<T>[] createNormalCaches(
+    private static <T> MemoryRegionCache<T>[] createNormalCaches( //yangyc 参数1:64; 参数2:32k; 参数3:directArena;
             int cacheSize, int maxCachedBufferCapacity, PoolArena<T> area) {
-        if (cacheSize > 0 && maxCachedBufferCapacity > 0) {
-            int max = Math.min(area.chunkSize, maxCachedBufferCapacity);
-            int arraySize = Math.max(1, log2(max / area.pageSize) + 1);
+        if (cacheSize > 0 && maxCachedBufferCapacity > 0) { //yangyc 条件1：64>0   条件2:32>0
+            int max = Math.min(area.chunkSize, maxCachedBufferCapacity); //yangyc max=32k
+            int arraySize = Math.max(1, log2(max / area.pageSize) + 1); //yangyc log2(max / area.pageSize)==>3  ==> arraySize==3
 
             @SuppressWarnings("unchecked")
-            MemoryRegionCache<T>[] cache = new MemoryRegionCache[arraySize];
-            for (int i = 0; i < cache.length; i++) {
+            MemoryRegionCache<T>[] cache = new MemoryRegionCache[arraySize]; //yangyc arraySize:3   ==>   8K; 16K; 32K
+            for (int i = 0; i < cache.length; i++) { //yangyc 创建出来的每个 NormalMemoryCache 内部队列长度为64, 表示可以缓存 64 个 normal 类型的内存位置信息
                 cache[i] = new NormalMemoryRegionCache<T>(cacheSize);
             }
             return cache;
@@ -199,14 +199,14 @@ final class PoolThreadCache {
      * Add {@link PoolChunk} and {@code handle} to the cache if there is enough room.
      * Returns {@code true} if it fit into the cache {@code false} otherwise.
      */
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked", "rawtypes" }) //yangyc 参数1:当前arena对象; 参数2:当前byteBuf占用内存归属chunk; 参数3:可能是null; 参数4:申请内存时，表示内存位置信息的 handle; 参数5:规格大小; 参数6:tiny small normal;
     boolean add(PoolArena<?> area, PoolChunk chunk, ByteBuffer nioBuffer,
                 long handle, int normCapacity, SizeClass sizeClass) {
-        MemoryRegionCache<?> cache = cache(area, normCapacity, sizeClass);
+        MemoryRegionCache<?> cache = cache(area, normCapacity, sizeClass); //yangyc 获取出当前规格大小的 MemoryRegionChache 对象
         if (cache == null) {
             return false;
         }
-        return cache.add(chunk, nioBuffer, handle);
+        return cache.add(chunk, nioBuffer, handle); //yangyc 参数1:当前byteBuf占用内存归属chunk; 参数2:可能是null; 参数3:申请内存时，表示内存位置信息的 handle;
     }
 
     private MemoryRegionCache<?> cache(PoolArena<?> area, int normCapacity, SizeClass sizeClass) {
@@ -374,8 +374,8 @@ final class PoolThreadCache {
         private int allocations;
 
         MemoryRegionCache(int size, SizeClass sizeClass) {
-            this.size = MathUtil.safeFindNextPositivePowerOfTwo(size);
-            queue = PlatformDependent.newFixedMpscQueue(this.size);
+            this.size = MathUtil.safeFindNextPositivePowerOfTwo(size); //yangyc 离 size 最近的一个2的n次幂的数
+            queue = PlatformDependent.newFixedMpscQueue(this.size); //yangyc 创建固定长度的队列
             this.sizeClass = sizeClass;
         }
 
@@ -388,13 +388,13 @@ final class PoolThreadCache {
         /**
          * Add to cache if not already full.
          */
-        @SuppressWarnings("unchecked")
+        @SuppressWarnings("unchecked") //yangyc 参数1:当前byteBuf占用内存归属chunk; 参数2:可能是null; 参数3:申请内存时，表示内存位置信息的 handle;
         public final boolean add(PoolChunk<T> chunk, ByteBuffer nioBuffer, long handle) {
-            Entry<T> entry = newEntry(chunk, nioBuffer, handle);
-            boolean queued = queue.offer(entry);
+            Entry<T> entry = newEntry(chunk, nioBuffer, handle); //yangyc 将待归还内存位置信息+内存大小等信息保存到 entry 对象里
+            boolean queued = queue.offer(entry); //yangyc 将 entry 加入缓存队列
             if (!queued) {
                 // If it was not possible to cache the chunk, immediately recycle the entry
-                entry.recycle();
+                entry.recycle(); //yangyc 因为队列满了, 缓存失败, 需要将 entry 归还到 entry 对象池
             }
 
             return queued;

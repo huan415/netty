@@ -39,7 +39,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     protected static ByteBuf toLeakAwareBuffer(ByteBuf buf) {
         ResourceLeakTracker<ByteBuf> leak;
         switch (ResourceLeakDetector.getLevel()) {
-            case SIMPLE:
+            case SIMPLE: //yangyc 默认监测级别
                 leak = AbstractByteBuf.leakDetector.track(buf);
                 if (leak != null) {
                     buf = new SimpleLeakAwareByteBuf(buf, leak);
@@ -257,12 +257,12 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         }
         final int threshold = CALCULATE_THRESHOLD; // 4 MiB page
 
-        if (minNewCapacity == threshold) {
+        if (minNewCapacity == threshold) { //yangyc minNewCapacity 等于 4MB
             return threshold;
         }
 
         // If over threshold, do not double but just increase by threshold.
-        if (minNewCapacity > threshold) {
+        if (minNewCapacity > threshold) { //yangyc minNewCapacity 大于 4MB
             int newCapacity = minNewCapacity / threshold * threshold;
             if (newCapacity > maxCapacity - threshold) {
                 newCapacity = maxCapacity;
@@ -271,7 +271,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
             }
             return newCapacity;
         }
-
+        //yangyc minNewCapacity 小于 4MB
         // Not over threshold. Double up to 4 MiB, starting from 64.
         int newCapacity = 64;
         while (newCapacity < minNewCapacity) {

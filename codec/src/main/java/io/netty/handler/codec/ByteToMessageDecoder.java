@@ -79,30 +79,31 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
      */
     public static final Cumulator MERGE_CUMULATOR = new Cumulator() {
         @Override
-        public ByteBuf cumulate(ByteBufAllocator alloc, ByteBuf cumulation, ByteBuf in) {
+        public ByteBuf cumulate(ByteBufAllocator alloc, ByteBuf cumulation, ByteBuf in) { //yangyc 参数1:内存池; 参数2:堆积区ByteBuf(大碗); 参数3:小碗;
             if (!cumulation.isReadable() && in.isContiguous()) {
                 // If cumulation is empty and input buffer is contiguous, use it directly
                 cumulation.release();
                 return in;
             }
             try {
-                final int required = in.readableBytes();
-                if (required > cumulation.maxWritableBytes() ||
+                final int required = in.readableBytes(); //yangyc 获取从socket加载的 byteBuf 可读数据量（小碗数据大小）
+                if (required > cumulation.maxWritableBytes() || //yangyc 条件1成立: 说明堆积区 ByteBuf 容量不足以支撑本次从socket加载的数据量...需要进行扩容
                         (required > cumulation.maxFastWritableBytes() && cumulation.refCnt() > 1) ||
                         cumulation.isReadOnly()) {
                     // Expand cumulation (by replacing it) under the following conditions:
                     // - cumulation cannot be resized to accommodate the additional data
                     // - cumulation can be expanded with a reallocation operation to accommodate but the buffer is
                     //   assumed to be shared (e.g. refCnt() > 1) and the reallocation may not be safe.
-                    return expandCumulation(alloc, cumulation, in);
+                    return expandCumulation(alloc, cumulation, in); //yangyc 返回新的堆积区，新的堆积区包含原堆积区所有未处理数据+in(小碗)内全部数据 参数1:内存池; 参数2:大碗ByteBuf（原堆积区）; 参数3:小碗ByteBuf;
                 }
+                //yangyc 执行到这, 说明当前 decoder 的堆积区(大碗)还有空间， 可以盛装本次 in 内部的全部数据
                 cumulation.writeBytes(in, in.readerIndex(), required);
-                in.readerIndex(in.writerIndex());
-                return cumulation;
+                in.readerIndex(in.writerIndex()); //yangyc 更新in的读锁引与写索引一致，表示in的数据全部处理了。。。
+                return cumulation; //yangyc 返回原堆积区
             } finally {
                 // We must release in in all cases as otherwise it may produce a leak if writeBytes(...) throw
                 // for whatever release (for example because of OutOfMemoryError)
-                in.release();
+                in.release(); //yangyc 将in占用的内存归还到它申请的内存的地方
             }
         }
     };
@@ -147,14 +148,14 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
         }
     };
 
-    private static final byte STATE_INIT = 0;
-    private static final byte STATE_CALLING_CHILD_DECODE = 1;
-    private static final byte STATE_HANDLER_REMOVED_PENDING = 2;
+    private static final byte STATE_INIT = 0; //yangyc 初始状态
+    private static final byte STATE_CALLING_CHILD_DECODE = 1; //yangyc 调用子类实现 decode 方法时期状态
+    private static final byte STATE_HANDLER_REMOVED_PENDING = 2; //yangyc 当decode 从 pipeline 移出去之后，状态会被修改成 REMOVED_PENDING 状态
 
-    ByteBuf cumulation;
-    private Cumulator cumulator = MERGE_CUMULATOR;
-    private boolean singleDecode;
-    private boolean first;
+    ByteBuf cumulation; //yangyc 堆积区 ByteBuf （大碗）
+    private Cumulator cumulator = MERGE_CUMULATOR; //yangyc 小碗的面条来了之后，cumulator 负责合并到大碗（cumulation）内
+    private boolean singleDecode; //yangyc 默认 false, 如果是 true, 每次 ChannelRead 只解码一个 frame
+    private boolean first; //yangyc false代表 cumulation 值是null, 否则 cumulation 不为null. 当cumulation的内部数据完全处理完成之后，Decoder它会把cumulation占用的堆外内存释放，并且将cumulation字段设置为null
 
     /**
      * This flag is used to determine if we need to call {@link ChannelHandlerContext#read()} to consume more data
@@ -170,9 +171,9 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
      *     <li>{@link #STATE_HANDLER_REMOVED_PENDING}</li>
      * </ul>
      */
-    private byte decodeState = STATE_INIT;
-    private int discardAfterReads = 16;
-    private int numReads;
+    private byte decodeState = STATE_INIT; //yangyc 当前解码器状态，有三个
+    private int discardAfterReads = 16; //yangyc 清理cumulation已读空间阈值，当cumulation readIndex 比较大时，cumulation可写的空间就会变小，通过整理的方法可以调整 cumulation 的readIndex和writeIndex，让其复用空闲空间
+    private int numReads; //yangyc 表示当前cumulation已经累积进去多少小碗数据
 
     protected ByteToMessageDecoder() {
         ensureNotSharable();
@@ -267,33 +268,35 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (msg instanceof ByteBuf) {
-            CodecOutputList out = CodecOutputList.newInstance();
+        if (msg instanceof ByteBuf) { //yangyc msg是ch.unsafe 到ch底层关联的socket读取数据时，使用byteBuf (小碗)
+            CodecOutputList out = CodecOutputList.newInstance(); //yangyc 其实就是一个普通的list (通过池化技术处理后的list)
             try {
-                first = cumulation == null;
-                cumulation = cumulator.cumulate(ctx.alloc(),
-                        first ? Unpooled.EMPTY_BUFFER : cumulation, (ByteBuf) msg);
-                callDecode(ctx, cumulation, out);
+                first = cumulation == null; //false代表 cumulation 值是null, 否则 cumulation 不为null.
+                cumulation = cumulator.cumulate(ctx.alloc(), //yangyc 将小碗的数据合并到大碗里面 （小碗面条的头和大碗面条的尾相连）
+                        first ? Unpooled.EMPTY_BUFFER : cumulation, (ByteBuf) msg); //yangyc 参数1:内存池; 参数2:堆积区ByteBuf(大碗); 参数3:小碗;
+                callDecode(ctx, cumulation, out); //yangyc 参数1:包装当前handler的context; 参数2:堆积区; 参数3:已解码的数据集合list;
+                //yangyc：总结：1.cumulation堆积区内的数据全部解析成 frame, 并且已经发生到 decoder 后面的 handler 去处理了，（out内可能剩余有未发送的 frame）
+                //yangyc 2.cumulation堆积区内的数据是半包数据，
             } catch (DecoderException e) {
                 throw e;
             } catch (Exception e) {
                 throw new DecoderException(e);
             } finally {
-                if (cumulation != null && !cumulation.isReadable()) {
+                if (cumulation != null && !cumulation.isReadable()) { //yangyc 条件成立: 说明 cumulation 内部数据全部处理完成了
                     numReads = 0;
-                    cumulation.release();
-                    cumulation = null;
-                } else if (++ numReads >= discardAfterReads) {
+                    cumulation.release(); //yangyc 将堆积区占用的内存释放
+                    cumulation = null; //yangyc 将堆积区字段设置为null, 下次再有 channelRead 事件进来，再次重建堆积区
+                } else if (++ numReads >= discardAfterReads) { //yangyc else说明堆积区内的数据是半包数据，  if 中++numReads 记录当前堆积区累加过的堆积次数,
                     // We did enough reads already try to discard some bytes so we not risk to see a OOME.
                     // See https://github.com/netty/netty/issues/4275
                     numReads = 0;
-                    discardSomeReadBytes();
+                    discardSomeReadBytes(); //yangyc 调整堆积区 ByteBuf ReaderIndex 和 WriteIndex, 重复利用空闲内存空间
                 }
 
                 int size = out.size();
                 firedChannelRead |= out.insertSinceRecycled();
-                fireChannelRead(ctx, out, size);
-                out.recycle();
+                fireChannelRead(ctx, out, size); //yangyc 将 out 内未发送的数据，也向后handler通知过去
+                out.recycle(); //yangyc 将out归还回对象池
             }
         } else {
             ctx.fireChannelRead(msg);
@@ -413,10 +416,10 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
      * @param in            the {@link ByteBuf} from which to read data
      * @param out           the {@link List} to which decoded messages should be added
      */
-    protected void callDecode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+    protected void callDecode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) { //yangyc 参数1:包装当前handler的context; 参数2:堆积区; 参数3:已解码的数据集合list;
         try {
-            while (in.isReadable()) {
-                int outSize = out.size();
+            while (in.isReadable()) { //yangyc 结束条件：堆积区内已经没有待处理的数据
+                int outSize = out.size(); //yangyc 刚调用传过来的 out 这个 list 是 0
 
                 if (outSize > 0) {
                     fireChannelRead(ctx, out, outSize);
@@ -433,8 +436,8 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                     outSize = 0;
                 }
 
-                int oldInputLength = in.readableBytes();
-                decodeRemovalReentryProtection(ctx, in, out);
+                int oldInputLength = in.readableBytes(); //yangyc 获取堆积区待处理数据量大小
+                decodeRemovalReentryProtection(ctx, in, out); //yangyc 内部调用了decode方法，由子类实现，子类通过将in的数据解析成业务协议的 frame, 并且放入到 out 这个 list 内
 
                 // Check if this handler was removed before continuing the loop.
                 // If it was removed, it is not safe to continue to operate on the buffer.
@@ -444,21 +447,21 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                     break;
                 }
 
-                if (outSize == out.size()) {
-                    if (oldInputLength == in.readableBytes()) {
+                if (outSize == out.size()) { //yangyc 条件成立：等于0
+                    if (oldInputLength == in.readableBytes()) { //yangyc 条件成立：说明当前 in 堆积区内的数据，属于半包数据
                         break;
                     } else {
-                        continue;
+                        continue; //yangyc 丢弃逻辑
                     }
                 }
 
-                if (oldInputLength == in.readableBytes()) {
-                    throw new DecoderException(
+                if (oldInputLength == in.readableBytes()) { //yangyc oldInputLength！=in.readableBytes() 说明在decode阶段肯定解析出来数据了，放入到out list内了。
+                    throw new DecoderException( //yangyc 都解析出来 frame 了，堆积区大小没变，肯定是你的子类实现逻辑有问题
                             StringUtil.simpleClassName(getClass()) +
                                     ".decode() did not read anything but decoded a message.");
                 }
 
-                if (isSingleDecode()) {
+                if (isSingleDecode()) { //yangyc 默认 false, 如果是 true, 每次 ChannelRead 只解码一个 frame
                     break;
                 }
             }
@@ -522,22 +525,23 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
         }
     }
 
-    static ByteBuf expandCumulation(ByteBufAllocator alloc, ByteBuf oldCumulation, ByteBuf in) {
-        int oldBytes = oldCumulation.readableBytes();
-        int newBytes = in.readableBytes();
-        int totalBytes = oldBytes + newBytes;
-        ByteBuf newCumulation = alloc.buffer(alloc.calculateNewCapacity(totalBytes, MAX_VALUE));
-        ByteBuf toRelease = newCumulation;
+    static ByteBuf expandCumulation(ByteBufAllocator alloc, ByteBuf oldCumulation, ByteBuf in) { //yangyc 参数1:内存池; 参数2:大碗ByteBuf（原堆积区）; 参数3:小碗ByteBuf;
+        int oldBytes = oldCumulation.readableBytes(); //yangyc 获取原堆积区为处理的数据量大小
+        int newBytes = in.readableBytes(); //yangyc 获取本次待处理的数据量
+        int totalBytes = oldBytes + newBytes; //yangyc 计算出一个总量
+        //yangyc alloc.calculateNewCapacity(totalBytes, MAX_VALUE) => 返回一个合适的size,总之这个size>=totalBytes
+        ByteBuf newCumulation = alloc.buffer(alloc.calculateNewCapacity(totalBytes, MAX_VALUE)); //yangyc 到内存池申请一个容量为 size 的 buffer
+        ByteBuf toRelease = newCumulation; //yangyc 待释放的内存
         try {
-            // This avoids redundant checks and stack depth compared to calling writeBytes(...)
+            // This avoids redundant checks and stack depth compared to calling writeBytes(...) yangyc 将老堆积区数据全部导入到新的堆积区
             newCumulation.setBytes(0, oldCumulation, oldCumulation.readerIndex(), oldBytes)
-                .setBytes(oldBytes, in, in.readerIndex(), newBytes)
-                .writerIndex(totalBytes);
-            in.readerIndex(in.writerIndex());
-            toRelease = oldCumulation;
+                .setBytes(oldBytes, in, in.readerIndex(), newBytes) //yangyc 将小碗内的数据也写入到新的堆积区
+                .writerIndex(totalBytes); //yangyc 更新写索引为 totalBytes
+            in.readerIndex(in.writerIndex()); //yangyc 更新小碗 byteBuf 的读锁引与写索引一致，表示这块 byteBuf 都处理完了
+            toRelease = oldCumulation; //yangyc toRelease 指向老的堆积区，后面 finally 会去释放老的堆积区
             return newCumulation;
         } finally {
-            toRelease.release();
+            toRelease.release(); //yangyc 异常时释放新扩容的堆积区，正常时释放老的堆积区
         }
     }
 

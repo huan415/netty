@@ -64,7 +64,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     };
 
     static {
-        int defaultPageSize = SystemPropertyUtil.getInt("io.netty.allocator.pageSize", 8192);
+        int defaultPageSize = SystemPropertyUtil.getInt("io.netty.allocator.pageSize", 8192); //yangyc 默认一页内存大小 8K
         Throwable pageSizeFallbackCause = null;
         try {
             validateAndCalculatePageShifts(defaultPageSize);
@@ -72,9 +72,9 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
             pageSizeFallbackCause = t;
             defaultPageSize = 8192;
         }
-        DEFAULT_PAGE_SIZE = defaultPageSize;
+        DEFAULT_PAGE_SIZE = defaultPageSize; //yangyc 设置常量 DEFAULT_PAGE_SIZE 为 8K
 
-        int defaultMaxOrder = SystemPropertyUtil.getInt("io.netty.allocator.maxOrder", 11);
+        int defaultMaxOrder = SystemPropertyUtil.getInt("io.netty.allocator.maxOrder", 11); //yangyc PoolChunk 内部使用的一颗满二叉树，表示内存占用情况, 树最深是11
         Throwable maxOrderFallbackCause = null;
         try {
             validateAndCalculateChunkSize(DEFAULT_PAGE_SIZE, defaultMaxOrder);
@@ -82,7 +82,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
             maxOrderFallbackCause = t;
             defaultMaxOrder = 11;
         }
-        DEFAULT_MAX_ORDER = defaultMaxOrder;
+        DEFAULT_MAX_ORDER = defaultMaxOrder; //yangyc 设置常量 DEFAULT_MAX_ORDER 为 11
 
         // Determine reasonable default for nHeapArena and nDirectArena.
         // Assuming each arena has 3 chunks, the pool should not consume more than 50% of max memory.
@@ -95,15 +95,15 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
          *
          * See https://github.com/netty/netty/issues/3888.
          */
-        final int defaultMinNumArena = NettyRuntime.availableProcessors() * 2;
-        final int defaultChunkSize = DEFAULT_PAGE_SIZE << DEFAULT_MAX_ORDER;
-        DEFAULT_NUM_HEAP_ARENA = Math.max(0,
+        final int defaultMinNumArena = NettyRuntime.availableProcessors() * 2; //yangyc 默认最少 arena 最少格式：2*CPU
+        final int defaultChunkSize = DEFAULT_PAGE_SIZE << DEFAULT_MAX_ORDER; //yangyc 8K 左移11位 ==> 16mb； 即：默认一个 chunk 管理16mb的真实内存
+        DEFAULT_NUM_HEAP_ARENA = Math.max(0,  //yangyc heapArena 个数：2*CPU
                 SystemPropertyUtil.getInt(
                         "io.netty.allocator.numHeapArenas",
                         (int) Math.min(
                                 defaultMinNumArena,
                                 runtime.maxMemory() / defaultChunkSize / 2 / 3)));
-        DEFAULT_NUM_DIRECT_ARENA = Math.max(0,
+        DEFAULT_NUM_DIRECT_ARENA = Math.max(0,  //yangyc directArena 个数：2*CPU
                 SystemPropertyUtil.getInt(
                         "io.netty.allocator.numDirectArenas",
                         (int) Math.min(
@@ -111,13 +111,13 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
                                 PlatformDependent.maxDirectMemory() / defaultChunkSize / 2 / 3)));
 
         // cache sizes
-        DEFAULT_TINY_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.tinyCacheSize", 512);
-        DEFAULT_SMALL_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.smallCacheSize", 256);
-        DEFAULT_NORMAL_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.normalCacheSize", 64);
+        DEFAULT_TINY_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.tinyCacheSize", 512);   //yangyc TinyMemoryRegionCache 内部可以缓存(512)个内存信息。
+        DEFAULT_SMALL_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.smallCacheSize", 256); //yangyc SmallMemoryRegionCache 内部可以缓存(256)个内存信息。
+        DEFAULT_NORMAL_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.normalCacheSize", 64);//yangyc NormalMemoryRegionCache 内部可以缓存(64)个内存信息。
 
         // 32 kb is the default maximum capacity of the cached buffer. Similar to what is explained in
         // 'Scalable memory allocation using jemalloc'
-        DEFAULT_MAX_CACHED_BUFFER_CAPACITY = SystemPropertyUtil.getInt(
+        DEFAULT_MAX_CACHED_BUFFER_CAPACITY = SystemPropertyUtil.getInt( //yangyc 32K, 表示MemoryRegionCache最大缓存内存规格是: 32K
                 "io.netty.allocator.maxCachedBufferCapacity", 32 * 1024);
 
         // the number of threshold of allocations when cached entries will be freed up if not frequently used
@@ -127,7 +127,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
         DEFAULT_CACHE_TRIM_INTERVAL_MILLIS = SystemPropertyUtil.getLong(
                 "io.netty.allocation.cacheTrimIntervalMillis", 0);
 
-        DEFAULT_USE_CACHE_FOR_ALL_THREADS = SystemPropertyUtil.getBoolean(
+        DEFAULT_USE_CACHE_FOR_ALL_THREADS = SystemPropertyUtil.getBoolean( //yangyc 是否全部的线程都使用 PoolThreadCache 技术, 默认true, 表示都使用
                 "io.netty.allocator.useCacheForAllThreads", true);
 
         DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT = SystemPropertyUtil.getInt(
@@ -174,7 +174,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     private final int normalCacheSize;
     private final List<PoolArenaMetric> heapArenaMetrics;
     private final List<PoolArenaMetric> directArenaMetrics;
-    private final PoolThreadLocalCache threadCache;
+    private final PoolThreadLocalCache threadCache; //yangyc 类似于 ThreadLocal 对象, 每个线程到 threadCache 内可以获取到一个当前线程自己的 PoolThreadCache 对象
     private final int chunkSize;
     private final PooledByteBufAllocatorMetric metric;
 
@@ -183,7 +183,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     }
 
     @SuppressWarnings("deprecation")
-    public PooledByteBufAllocator(boolean preferDirect) {
+    public PooledByteBufAllocator(boolean preferDirect) { //yangyc 参数1：一般是 true; 表示偏向使用堆外内存; 参数2：heapArena个数--2*CPU; 参数3：directArena个数--2*CPU; 参数4：默认页大小 8K; 参数5：PoolChunk 内部使用的一颗满二叉树，表示内存占用情况, 树最深是11;
         this(preferDirect, DEFAULT_NUM_HEAP_ARENA, DEFAULT_NUM_DIRECT_ARENA, DEFAULT_PAGE_SIZE, DEFAULT_MAX_ORDER);
     }
 
@@ -196,21 +196,21 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
      * @deprecated use
      * {@link PooledByteBufAllocator#PooledByteBufAllocator(boolean, int, int, int, int, int, int, int, boolean)}
      */
-    @Deprecated
+    @Deprecated //yangyc 参数1：一般是 true; 表示偏向使用堆外内存; 参数2：heapArena个数--2*CPU; 参数3：directArena个数--2*CPU; 参数4：默认页大小 8K; 参数5：PoolChunk 内部使用的一颗满二叉树，表示内存占用情况, 树最深是11;
     public PooledByteBufAllocator(boolean preferDirect, int nHeapArena, int nDirectArena, int pageSize, int maxOrder) {
-        this(preferDirect, nHeapArena, nDirectArena, pageSize, maxOrder,
-                DEFAULT_TINY_CACHE_SIZE, DEFAULT_SMALL_CACHE_SIZE, DEFAULT_NORMAL_CACHE_SIZE);
+        this(preferDirect, nHeapArena, nDirectArena, pageSize, maxOrder,//yangyc 参数1：一般是 true; 表示偏向使用堆外内存; 参数2：heapArena个数--2*CPU; 参数3：directArena个数--2*CPU; 参数4：默认页大小 8K; 参数5：PoolChunk 内部使用的一颗满二叉树，表示内存占用情况, 树最深是11;
+                DEFAULT_TINY_CACHE_SIZE, DEFAULT_SMALL_CACHE_SIZE, DEFAULT_NORMAL_CACHE_SIZE); //yangyc 参数6：TinyMemoryRegionCache 内部可以缓存(512)个内存信息。;参数7：SmallMemoryRegionCache 内部可以缓存(256)个内存信息。;参数8：NormalMemoryRegionCache 内部可以缓存(64)个内存信息。;
     }
 
     /**
      * @deprecated use
      * {@link PooledByteBufAllocator#PooledByteBufAllocator(boolean, int, int, int, int, int, int, int, boolean)}
      */
-    @Deprecated
+    @Deprecated //yangyc 参数1：一般是 true; 表示偏向使用堆外内存; 参数2：heapArena个数--2*CPU; 参数3：directArena个数--2*CPU; 参数4：默认页大小 8K; 参数5：PoolChunk 内部使用的一颗满二叉树，表示内存占用情况, 树最深是11; 参数6：TinyMemoryRegionCache 内部可以缓存(512)个内存信息。;参数7：SmallMemoryRegionCache 内部可以缓存(256)个内存信息。;参数8：NormalMemoryRegionCache 内部可以缓存(64)个内存信息。;
     public PooledByteBufAllocator(boolean preferDirect, int nHeapArena, int nDirectArena, int pageSize, int maxOrder,
                                   int tinyCacheSize, int smallCacheSize, int normalCacheSize) {
         this(preferDirect, nHeapArena, nDirectArena, pageSize, maxOrder, tinyCacheSize, smallCacheSize,
-                normalCacheSize, DEFAULT_USE_CACHE_FOR_ALL_THREADS, DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT);
+                normalCacheSize, DEFAULT_USE_CACHE_FOR_ALL_THREADS, DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT); //yangyc 参数9：是否全部的线程都使用 PoolThreadCache 技术, 默认true, 表示都使用; 参数10：对齐填充,0值;
     }
 
     public PooledByteBufAllocator(boolean preferDirect, int nHeapArena,
@@ -221,16 +221,16 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
                 tinyCacheSize, smallCacheSize, normalCacheSize,
                 useCacheForAllThreads, DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT);
     }
-
+    //yangyc 参数1：一般是 true; 表示偏向使用堆外内存; 参数2：heapArena个数--2*CPU; 参数3：directArena个数--2*CPU; 参数4：默认页大小 8K; 参数5：PoolChunk 内部使用的一颗满二叉树，表示内存占用情况, 树最深是11;
     public PooledByteBufAllocator(boolean preferDirect, int nHeapArena, int nDirectArena, int pageSize, int maxOrder,
-                                  int tinyCacheSize, int smallCacheSize, int normalCacheSize,
-                                  boolean useCacheForAllThreads, int directMemoryCacheAlignment) {
-        super(preferDirect);
-        threadCache = new PoolThreadLocalCache(useCacheForAllThreads);
-        this.tinyCacheSize = tinyCacheSize;
-        this.smallCacheSize = smallCacheSize;
-        this.normalCacheSize = normalCacheSize;
-        chunkSize = validateAndCalculateChunkSize(pageSize, maxOrder);
+                                  int tinyCacheSize, int smallCacheSize, int normalCacheSize, //yangyc 参数6：TinyMemoryRegionCache 内部可以缓存(512)个内存信息。;参数7：SmallMemoryRegionCache 内部可以缓存(256)个内存信息。;参数8：NormalMemoryRegionCache 内部可以缓存(64)个内存信息。;
+                                  boolean useCacheForAllThreads, int directMemoryCacheAlignment) { //yangyc 参数9：是否全部的线程都使用 PoolThreadCache 技术, 默认true, 表示都使用; 参数10：对齐填充,0值;
+        super(preferDirect); //yangyc 将 “是否偏向堆外内存” 的信息交给父类, 父类根据该信息进行路由
+        threadCache = new PoolThreadLocalCache(useCacheForAllThreads); //yangyc 类似于 ThreadLocal 对象, 每个线程到 threadCache 内可以获取到一个当前线程自己的 PoolThreadCache 对象
+        this.tinyCacheSize = tinyCacheSize;     //yangyc TinyMemoryRegionCache 内部可以缓存(512)个内存信息。
+        this.smallCacheSize = smallCacheSize;   //yangyc SmallMemoryRegionCache 内部可以缓存(256)个内存信息。
+        this.normalCacheSize = normalCacheSize; //yangyc NormalMemoryRegionCache 内部可以缓存(64)个内存信息。
+        chunkSize = validateAndCalculateChunkSize(pageSize, maxOrder); //yangyc 根据 pageSize 和 满二叉树节点深度计算出 chunkSize. 默认情况下: pageSize:8K,maxOrder:11 ==> 16mb
 
         checkPositiveOrZero(nHeapArena, "nHeapArena");
         checkPositiveOrZero(nDirectArena, "nDirectArena");
@@ -245,12 +245,12 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
                     + directMemoryCacheAlignment + " (expected: power of two)");
         }
 
-        int pageShifts = validateAndCalculatePageShifts(pageSize);
+        int pageShifts = validateAndCalculatePageShifts(pageSize); //yangyc 当pageSize=8K ==> pageShifts=13. ==> 1左移13位可以得到 pageSize
 
-        if (nHeapArena > 0) {
-            heapArenas = newArenaArray(nHeapArena);
-            List<PoolArenaMetric> metrics = new ArrayList<PoolArenaMetric>(heapArenas.length);
-            for (int i = 0; i < heapArenas.length; i ++) {
+        if (nHeapArena > 0) { //yangyc 一般条件成立
+            heapArenas = newArenaArray(nHeapArena); //yangyc 假设CPU个数8. 这里创建 16 长度的 heapArena 数组
+            List<PoolArenaMetric> metrics = new ArrayList<PoolArenaMetric>(heapArenas.length); //yangyc 监控报表相关
+            for (int i = 0; i < heapArenas.length; i ++) { //yangyc 循环最终创建16个 heapArena 对象, 并且将这些对象放入到数组内
                 PoolArena.HeapArena arena = new PoolArena.HeapArena(this,
                         pageSize, maxOrder, pageShifts, chunkSize,
                         directMemoryCacheAlignment);
@@ -263,11 +263,11 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
             heapArenaMetrics = Collections.emptyList();
         }
 
-        if (nDirectArena > 0) {
-            directArenas = newArenaArray(nDirectArena);
-            List<PoolArenaMetric> metrics = new ArrayList<PoolArenaMetric>(directArenas.length);
-            for (int i = 0; i < directArenas.length; i ++) {
-                PoolArena.DirectArena arena = new PoolArena.DirectArena(
+        if (nDirectArena > 0) { //yangyc 一般条件成立
+            directArenas = newArenaArray(nDirectArena); //yangyc 假设CPU个数8. 这里创建 16 长度的 directArena 数组
+            List<PoolArenaMetric> metrics = new ArrayList<PoolArenaMetric>(directArenas.length); //yangyc 监控报表相关
+            for (int i = 0; i < directArenas.length; i ++) { //yangyc 循环最终创建16个 heapArena 对象, 并且将这些对象放入到数组内
+                PoolArena.DirectArena arena = new PoolArena.DirectArena( //yangyc 参数1:当前PooledByteBufAllocator对象; 参数2:8K; 参数3:满二叉树深度11; 参数4: 13--1左移13位可以得到pageSize; 参数5:16mb; 参数6:0;
                         this, pageSize, maxOrder, pageShifts, chunkSize, directMemoryCacheAlignment);
                 directArenas[i] = arena;
                 metrics.add(arena);
@@ -290,12 +290,12 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
             throw new IllegalArgumentException("pageSize: " + pageSize + " (expected: " + MIN_PAGE_SIZE + ")");
         }
 
-        if ((pageSize & pageSize - 1) != 0) {
+        if ((pageSize & pageSize - 1) != 0) { //yangyc 要求pageSize 是 2的n次幂
             throw new IllegalArgumentException("pageSize: " + pageSize + " (expected: power of 2)");
         }
 
-        // Logarithm base 2. At this point we know that pageSize is a power of two.
-        return Integer.SIZE - 1 - Integer.numberOfLeadingZeros(pageSize);
+        // Logarithm base 2. At this point we know that pageSize is a power of two.//yangyc Integer.numberOfLeadingZeros(pageSize):pageSize 前面有多少个0.   32-1-18=13
+        return Integer.SIZE - 1 - Integer.numberOfLeadingZeros(pageSize); //yangyc 即：1左移13位可以得到 pageSize
     }
 
     private static int validateAndCalculateChunkSize(int pageSize, int maxOrder) {
@@ -333,20 +333,20 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     }
 
     @Override
-    protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
-        PoolThreadCache cache = threadCache.get();
-        PoolArena<ByteBuffer> directArena = cache.directArena;
+    protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) { //yangyc 参数1:业务需求内存大小; 参数2:最大内存大小;
+        PoolThreadCache cache = threadCache.get(); //yangyc 每个线程都去获取一个当前线程的 PoolTheadCache 对象。注意: 每个线程都有自己的 PoolThreadCache 对象。并且每个PoolThreadCache对象内部包含两个区域: HeapArena 和 DirectArena
+        PoolArena<ByteBuffer> directArena = cache.directArena; //yangyc 获取分配给当前线程使用的 directArena 区域, 后面要在这块区域内申请内存
 
         final ByteBuf buf;
-        if (directArena != null) {
-            buf = directArena.allocate(cache, initialCapacity, maxCapacity);
+        if (directArena != null) { //yangyc 条件一般成立
+            buf = directArena.allocate(cache, initialCapacity, maxCapacity); //yangyc 参数1:当前线程相关的PoolThreadCache对象; 参数2:业务层需要的内存容量; 参数3:最大内存容量;
         } else {
             buf = PlatformDependent.hasUnsafe() ?
                     UnsafeByteBufUtil.newUnsafeDirectByteBuf(this, initialCapacity, maxCapacity) :
                     new UnpooledDirectByteBuf(this, initialCapacity, maxCapacity);
         }
-
-        return toLeakAwareBuffer(buf);
+        //yangyc 该方法会根据检测级别进行追踪 byteBuf 资源对象, 默认检测级别是 simple
+        return toLeakAwareBuffer(buf); //yangyc 会抽样一小部分 byteBuf 进行资源追踪，当被追踪的资源发生泄漏后, 资源检测器会打印 error 日志
     }
 
     /**
@@ -442,7 +442,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     }
 
     final class PoolThreadLocalCache extends FastThreadLocal<PoolThreadCache> {
-        private final boolean useCacheForAllThreads;
+        private final boolean useCacheForAllThreads; //yangyc true
 
         PoolThreadLocalCache(boolean useCacheForAllThreads) {
             this.useCacheForAllThreads = useCacheForAllThreads;
@@ -450,14 +450,14 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
 
         @Override
         protected synchronized PoolThreadCache initialValue() {
-            final PoolArena<byte[]> heapArena = leastUsedArena(heapArenas);
-            final PoolArena<ByteBuffer> directArena = leastUsedArena(directArenas);
+            final PoolArena<byte[]> heapArena = leastUsedArena(heapArenas);          //yangyc 获取 arena 数组中, 线程共享数最低的 arena 对象
+            final PoolArena<ByteBuffer> directArena = leastUsedArena(directArenas);  //yangyc 获取 arena 数组中, 线程共享数最低的 arena 对象
 
             final Thread current = Thread.currentThread();
-            if (useCacheForAllThreads || current instanceof FastThreadLocalThread) {
-                final PoolThreadCache cache = new PoolThreadCache(
+            if (useCacheForAllThreads || current instanceof FastThreadLocalThread) {//yangyc 条件1一般成立； 条件2: netty线程一般都是 NioEventLoop线程, NioEventLoop 线程由 DefaultThreadFactory 创建, 它创建的线程都是 FastThreadLocalThread
+                final PoolThreadCache cache = new PoolThreadCache( //yangyc 创建归属当前线程的 cache 对象, 参数1:heapArena; 参数2:directArena; 参数3:512; 参数4:256; 参数5:64;
                         heapArena, directArena, tinyCacheSize, smallCacheSize, normalCacheSize,
-                        DEFAULT_MAX_CACHED_BUFFER_CAPACITY, DEFAULT_CACHE_TRIM_INTERVAL);
+                        DEFAULT_MAX_CACHED_BUFFER_CAPACITY, DEFAULT_CACHE_TRIM_INTERVAL); //yangyc  参数6:32K; 参数7:8192 一个阈值;
 
                 if (DEFAULT_CACHE_TRIM_INTERVAL_MILLIS > 0) {
                     final EventExecutor executor = ThreadExecutorMap.currentExecutor();
@@ -477,7 +477,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
             threadCache.free(false);
         }
 
-        private <T> PoolArena<T> leastUsedArena(PoolArena<T>[] arenas) {
+        private <T> PoolArena<T> leastUsedArena(PoolArena<T>[] arenas) { //yangyc 返回 arena 数组内, 线程共享数最低的 arena 对象
             if (arenas == null || arenas.length == 0) {
                 return null;
             }

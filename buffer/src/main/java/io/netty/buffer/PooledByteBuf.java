@@ -45,8 +45,8 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
         super(maxCapacity);
         this.recyclerHandle = (Handle<PooledByteBuf<T>>) recyclerHandle;
     }
-
-    void init(PoolChunk<T> chunk, ByteBuffer nioBuffer,
+    //yangyc 参数1：创建buteBuf分配内存的chunk对象。真实的内存是chunk持有的，所以必传chunk,参数2：null; 参数3：handle是buf占用内存的位置相关信息，后面释放内存也要使用hanlde; 参数4：计算出当前buf占用的内存在byteBuffer上便宜位置，必须知道管理的内存在大内存上的便宜位置;
+    void init(PoolChunk<T> chunk, ByteBuffer nioBuffer,//yangyc  参数5：赋值给buf length属性,表示业务申请内存大小; 参数6：比如：memoryMapIdx=2048返回8k  memoryMapIdx=1024返回16k  赋值给buf maxLength, 表示 bug 可用内存的最大大小; 参数7：当前线程的 threaLocalCache对象，为什么要这个对象？因为释放的时候首选的地方为 threadLocache, 缓存到线程局部，方便后面再申请时使用，而不是直接归还到 pool;
               long handle, int offset, int length, int maxLength, PoolThreadCache cache) {
         init0(chunk, nioBuffer, handle, offset, length, maxLength, cache);
     }
@@ -54,8 +54,8 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
     void initUnpooled(PoolChunk<T> chunk, int length) {
         init0(chunk, null, 0, chunk.offset, length, length, null);
     }
-
-    private void init0(PoolChunk<T> chunk, ByteBuffer nioBuffer,
+    //yangyc 参数1：创建buteBuf分配内存的chunk对象。真实的内存是chunk持有的，所以必传chunk,参数2：null; 参数3：handle是buf占用内存的位置相关信息，后面释放内存也要使用hanlde; 参数4：计算出当前buf占用的内存在byteBuffer上便宜位置，必须知道管理的内存在大内存上的便宜位置;
+    private void init0(PoolChunk<T> chunk, ByteBuffer nioBuffer, //yangyc  参数5：赋值给buf length属性,表示业务申请内存大小; 参数6：比如：memoryMapIdx=2048返回8k  memoryMapIdx=1024返回16k  赋值给buf maxLength, 表示 bug 可用内存的最大大小; 参数7：当前线程的 threaLocalCache对象，为什么要这个对象？因为释放的时候首选的地方为 threadLocache, 缓存到线程局部，方便后面再申请时使用，而不是直接归还到 pool;
                        long handle, int offset, int length, int maxLength, PoolThreadCache cache) {
         assert handle >= 0;
         assert chunk != null;
@@ -163,15 +163,15 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
     protected abstract ByteBuffer newInternalNioBuffer(T memory);
 
     @Override
-    protected final void deallocate() {
+    protected final void deallocate() { //yangyc 回收内存入口
         if (handle >= 0) {
-            final long handle = this.handle;
-            this.handle = -1;
+            final long handle = this.handle; //yangyc 申请内存时，表示内存位置信息的 handle
+            this.handle = -1; //yangyc 置为-1, 表示当前 buf 不再管理内存了
             memory = null;
-            chunk.arena.free(chunk, tmpNioBuf, handle, maxLength, cache);
+            chunk.arena.free(chunk, tmpNioBuf, handle, maxLength, cache); //yangyc 参数1:byteBuf 管理内存归还chunk; 参数2:不关心，可能是null; 参数3:申请内存时，表示内存位置信息的 handle; 参数4:byteBuf 可用内存最大大小; 参数5:申请byteBuf对象线程，释放内存时，优先将内存位置信息缓存到本地;
             tmpNioBuf = null;
             chunk = null;
-            recycle();
+            recycle(); //yangyc 将 PooledByteBuf 归还到对象池
         }
     }
 
