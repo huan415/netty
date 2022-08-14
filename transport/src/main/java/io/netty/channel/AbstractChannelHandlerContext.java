@@ -354,19 +354,19 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public ChannelHandlerContext fireChannelRead(final Object msg) {
-        invokeChannelRead(findContextInbound(MASK_CHANNEL_READ), msg);
+        invokeChannelRead(findContextInbound(MASK_CHANNEL_READ), msg); //找到下一个 inboundContext，并调用下一个 inboundContext 的处理方法
         return this;
     }
 
     static void invokeChannelRead(final AbstractChannelHandlerContext next, Object msg) { //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
         final Object m = next.pipeline.touch(ObjectUtil.checkNotNull(msg, "msg"), next);
         EventExecutor executor = next.executor();
-        if (executor.inEventLoop()) {
+        if (executor.inEventLoop()) { // 如果当前线程是 next 事件执行器EventExecutor线程，直接调用
             next.invokeChannelRead(m);
         } else {
             executor.execute(new Runnable() {
                 @Override
-                public void run() {
+                public void run() { // 如果当前线程不是 next 事件执行器线程，那么就通过事件执行器EventExecutor 的execute方法，保证在执行器线程调用
                     next.invokeChannelRead(m); //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
                 }
             });
@@ -374,14 +374,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeChannelRead(Object msg) { //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
-        if (invokeHandler()) {
+        if (invokeHandler()) {  // 判断当前 ctx 没有已经添加到管道上了
             try {
                 ((ChannelInboundHandler) handler()).channelRead(this, msg); //yangyc-main Channel read 读取消息 [ServerBootstrapAcceptor]
             } catch (Throwable t) {
                 invokeExceptionCaught(t);
             }
         } else {
-            fireChannelRead(msg);
+            fireChannelRead(msg);// 如果没有添加完成(状态不是ADD_COMPLETE)， 就继续调用 fire 的方法，让管道下一个处理器处理
         }
     }
 
