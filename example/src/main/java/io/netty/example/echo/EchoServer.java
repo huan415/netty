@@ -50,12 +50,12 @@ public final class EchoServer {
 
         // Configure the server.
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
+        EventLoopGroup workerGroup = new NioEventLoopGroup();//yangyc-main NioEventLoop数组、chooser取出其中一个NioEventLoop（位运算或者取余）
         final EchoServerHandler serverHandler = new EchoServerHandler();
         try {
             ServerBootstrap b = new ServerBootstrap(); //yangyc 服务端启动辅助类
             b.group(bossGroup, workerGroup)
-             .channel(NioServerSocketChannel.class) //yangyc 设置服务端 Channel 类型，内部创建一个反射工厂，newChannel() 创建 NioServerSocketChannel 实例
+             .channel(NioServerSocketChannel.class) //yangyc-main 设置服务端 Channel 类型，内部创建一个反射工厂，newChannel() 创建 NioServerSocketChannel 实例
              .option(ChannelOption.SO_BACKLOG, 100) //yangyc 设置 Server 自定义选项信息
              .handler(new LoggingHandler(LogLevel.INFO)) //yangyc 配置用户自定义的Server端 pipeline 处理器。后续创建NioServerChannel实例后，会将用户自定义的Handle加到该pipeline中
              .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -71,7 +71,7 @@ public final class EchoServer {
              });
 
             // Start the server.
-            ChannelFuture f = b.bind(PORT).sync(); //yangyc bind()返回一个与bind操作相关的 promise 对象。promise#sync 会将主线程陷入到挂起状态，直到绑定操作完成之后才唤醒
+            ChannelFuture f = b.bind(PORT).sync(); //yangyc-main bind()返回一个与bind操作相关的 promise 对象。promise#sync 会将主线程陷入到挂起状态，直到绑定操作完成之后才唤醒
 
             // Wait until the server socket is closed.
             f.channel().closeFuture().sync();
